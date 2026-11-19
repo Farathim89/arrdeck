@@ -7,6 +7,7 @@ const gearBtn = document.getElementById("settings");
 const verEl = document.getElementById("ver");
 const updateBtn = document.getElementById("update");
 updateBtn.addEventListener("click", () => deck.updateClick());
+verEl.addEventListener("click", () => deck.updateClick());   // no update known yet: looks now
 
 const STATUS_TEXT = { up: "running", warn: "has warnings", error: "has errors", down: "not answering" };
 const HOME_SVG = '<svg class="home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';

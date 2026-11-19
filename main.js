@@ -519,7 +519,7 @@ function createWindow() {
     win.hide();
     trayHint();
   });
-  win.on("focus", () => { win.webContents.send("focus", true); markAlertsSeen(); if (!settingsView && wc()) wc().focus(); });
+  win.on("focus", () => { win.webContents.send("focus", true); markAlertsSeen(); if (updater) updater.checkIfStale(); if (!settingsView && wc()) wc().focus(); });
   win.on("blur", () => win.webContents.send("focus", false));
   for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) win.on(ev, () => { layout(); sendState(); });
   win.on("app-command", (_e, cmd) => {

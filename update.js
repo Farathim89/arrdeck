@@ -226,9 +226,15 @@ module.exports = function createUpdater({ getWin, dataDir, getConfig, saveConfig
     // Tidy up what an update left (install.log stays until the next update, for checking).
     try { for (const f of fs.readdirSync(updateDir)) if (f !== "install.log") fs.rmSync(path.join(updateDir, f), { force: true }); } catch {}
     const auto = () => getConfig().updateCheck !== false;
-    setTimeout(() => { if (auto()) check(false); }, 10000);
-    setInterval(() => { if (auto()) check(false); }, 12 * 60 * 60 * 1000);
+    setTimeout(() => { if (auto()) check(false); }, 8000);
+    setInterval(() => { if (auto()) check(false); }, 2 * 60 * 60 * 1000);
   }
 
-  return { start, check, click, info, page: PAGE };
+  // Coming back to the window: look again if the last look is over half an hour old.
+  function checkIfStale() {
+    if (getConfig().updateCheck === false || checking || state !== "idle") return;
+    if (!lastCheck || Date.now() - lastCheck.at > 30 * 60 * 1000) check(false);
+  }
+
+  return { start, check, click, info, checkIfStale, page: PAGE };
 };

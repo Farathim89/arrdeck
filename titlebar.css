@@ -20,7 +20,9 @@ body::after { content: ""; position: fixed; left: 0; right: 0; top: 37px; height
 
 .logo { width: 18px; height: 18px; flex: none; fill: var(--gold); }
 .brand { font-size: 13px; font-weight: 700; letter-spacing: .3px; margin: 0 0 0 4px; color: var(--gold); }
-.ver { font-size: 11px; color: var(--dim); margin: 1px 10px 0 6px; }
+/* The version: click it to check for updates. */
+.ver { -webkit-app-region: no-drag; font-size: 11px; color: var(--dim); margin: 1px 6px 0 2px; padding: 3px 6px; border: 1px solid transparent; }
+.ver:hover { color: var(--gold); border-color: var(--gold); background: none; }
 
 /* "Update 1.0.1" - shown only when GitHub has a newer ArrDeck. */
 .update { -webkit-app-region: no-drag; flex: none; margin-right: 6px; padding: 3px 12px; border: 1px solid var(--gold);

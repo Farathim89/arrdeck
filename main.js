@@ -329,8 +329,12 @@ function createAppView(a) {
     e.preventDefault();
     openExternal(url);
   });
-  c.setWindowOpenHandler(({ url }) => {
-    if (isPlexAuth(url) || url === "about:blank") {
+  c.setWindowOpenHandler(({ url, disposition }) => {
+    // Real pop-ups (opened with a size: "new-window") stay pop-ups: Seerr's "Sign in with Plex"
+    // first opens /login/plex/loading on Seerr itself, then sends that pop-up to plex.tv and
+    // waits for it; loading it into the tab instead left Seerr stuck on its loading screen.
+    const popup = disposition === "new-window" && (sameOrigin(url, entry.app.url) || isPlexAuth(url));
+    if (popup || isPlexAuth(url) || url === "about:blank") {
       return {
         action: "allow",
         overrideBrowserWindowOptions: { parent: win, width: 600, height: 760, autoHideMenuBar: true, backgroundColor: BG, icon: ICON },
@@ -340,6 +344,8 @@ function createAppView(a) {
     else openExternal(url);
     return { action: "deny" };
   });
+  // Pop-ups (sign-in windows) ignore the Windows theme too.
+  c.on("did-create-window", (child) => ignoreWindowsTheme(child.webContents));
   win.contentView.addChildView(view);
   views.set(a.id, entry);
   return entry;

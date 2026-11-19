@@ -1,7 +1,7 @@
 /* ==UserStyle==
 @name           Arr High contrast (Animekeeper style)
 @namespace      farathim.animekeeper
-@version        1.0.1
+@version        1.0.2
 @description    Black, white and gold for Sonarr, Radarr, Lidarr, Prowlarr (and Readarr / Whisparr) - the High contrast theme of Animekeeper and Shelfkeeper.
 @author         Farathim
 @license        MIT
@@ -191,10 +191,12 @@
     --progressBarBackgroundColor: #333333 !important;
   }
 
-  /* check boxes (class names like "CheckInput/primaryIsChecked/abc12"): a black tick on the bright
-     gold / green / amber fill; unchecked ones black with a white edge instead of plain white */
-  [class*="CheckInput/primaryIsChecked"], [class*="CheckInput/successIsChecked"],
-  [class*="CheckInput/warningIsChecked"] { color: #000000 !important; }
+  /* check boxes (class names like "CheckInput/primaryIsChecked/abc12"): ticked = a dark fill with the
+     colour on the edge and the tick, like the buttons; unticked = black with a white edge */
+  [class*="CheckInput/primaryIsChecked"] { background-color: #332b00 !important; border-color: #ffd700 !important; color: #ffd700 !important; }
+  [class*="CheckInput/successIsChecked"] { background-color: #00331a !important; border-color: #00ff66 !important; color: #00ff66 !important; }
+  [class*="CheckInput/warningIsChecked"] { background-color: #332300 !important; border-color: #ffb020 !important; color: #ffb020 !important; }
+  [class*="CheckInput/dangerIsChecked"] { background-color: #330d0d !important; border-color: #ff4040 !important; color: #ff4040 !important; }
   [class*="CheckInput/isNotChecked"] { background-color: #000000 !important; border-color: #ffffff !important; }
 
   /* a clear focus ring everywhere (keyboard use) */

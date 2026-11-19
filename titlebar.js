@@ -5,6 +5,10 @@ const backBtn = document.getElementById("back");
 const fwdBtn = document.getElementById("forward");
 const gearBtn = document.getElementById("settings");
 const verEl = document.getElementById("ver");
+const winMax = document.getElementById("winMax");
+document.getElementById("winMin").addEventListener("click", () => deck.windowAction("minimize"));
+winMax.addEventListener("click", () => deck.windowAction("maximize"));
+document.getElementById("winClose").addEventListener("click", () => deck.windowAction("close"));
 const updateBtn = document.getElementById("update");
 updateBtn.addEventListener("click", () => deck.updateClick());
 verEl.addEventListener("click", () => deck.updateClick());   // no update known yet: looks now
@@ -18,6 +22,8 @@ function render(s) {
   fwdBtn.disabled = !s.canForward;
   gearBtn.classList.toggle("on", !!s.settingsOpen);
   document.body.classList.toggle("framed", !!s.framed);
+  document.body.classList.toggle("maximized", !!s.maximized);
+  winMax.title = s.maximized ? "Restore" : "Maximise";
   verEl.textContent = s.version ? "v" + s.version : "";
   updateBtn.classList.toggle("hidden", !s.update);
   if (s.update) { updateBtn.textContent = s.update.label; updateBtn.title = s.update.tip || ""; }
@@ -36,9 +42,18 @@ function render(s) {
     if (t.id === "home") {
       b.innerHTML = HOME_SVG;
     } else {
+      // The app's icon with its status dot on the corner (just the dot until the icon is known).
       const dot = document.createElement("i");
       dot.className = "dot " + (t.status || "");
-      b.appendChild(dot);
+      if (t.icon) {
+        const ic = document.createElement("span");
+        ic.className = "appicon";
+        const img = document.createElement("img");
+        img.src = t.icon;
+        img.alt = "";
+        ic.append(img, dot);
+        b.appendChild(ic);
+      } else b.appendChild(dot);
     }
     const name = document.createElement("span");
     name.className = "name";

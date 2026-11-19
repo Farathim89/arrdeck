@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("arrdeck", {
   select: (id) => ipcRenderer.send("tab:select", id),
   nav: (action) => ipcRenderer.send("tab:nav", action),
   toggleSettings: () => ipcRenderer.send("settings:toggle"),
+  windowAction: (action) => ipcRenderer.send("win:action", action),
   // settings
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSetting: (key, value) => ipcRenderer.invoke("settings:set", { key, value }),

@@ -320,6 +320,8 @@ function createAppView(a) {
   c.on("did-navigate", remember);
   c.on("did-navigate-in-page", remember);
   c.on("page-title-updated", () => { if (a.id === active) sendState(); });
+  // The app's own icon for its tab (what a browser shows on its tab).
+  c.on("page-favicon-updated", (_e, urls) => { if (urls && urls[0]) fetchAppIcon(entry.app, urls[0]); });
 
   // Links: the app's own pages stay here; others open in your browser.
   c.on("will-navigate", (e, url) => {
@@ -381,6 +383,7 @@ function syncViews() {
   layout();
   sendState();
   updateTrayMenu();
+  fetchMissingIcons();
 }
 
 function select(id) {
@@ -403,11 +406,12 @@ function sendState() {
   win.webContents.send("state", {
     active,
     tabs: [{ id: "home", name: "Home", status: health ? (dash.health.some((h) => h.type === "error") ? "error" : "warn") : "", badge: health || "" }]
-      .concat(enabledApps().map((a) => ({ id: a.id, name: a.name, status: status[a.id] || "" }))),
+      .concat(enabledApps().map((a) => ({ id: a.id, name: a.name, status: status[a.id] || "", icon: (config.icons || {})[a.id] || "" }))),
     canBack: !!(c && c.navigationHistory.canGoBack()),
     canForward: !!(c && c.navigationHistory.canGoForward()),
     settingsOpen: !!settingsView,
     framed: framed(),
+    maximized: !!win && win.isMaximized(),
     version: app.getVersion(),
     update: updater ? updater.info().pill : null,
   });
@@ -467,6 +471,32 @@ function onShortcut(event, input) {
   if (action) { event.preventDefault(); action(); }
 }
 
+// ---- app icons -------------------------------------------------------------------
+// Each tab shows its app's own icon: the page's favicon, fetched in the app's own session and
+// kept in the settings as a small data: URL, so it's there straight away next time.
+const iconTried = new Set();
+async function fetchAppIcon(a, url) {
+  if (!a || !/^https?:/i.test(url || "") || iconTried.has(`${a.id}|${url}`)) return;
+  iconTried.add(`${a.id}|${url}`);
+  try {
+    const res = await session.fromPartition(`persist:${a.id}`).fetch(url, { signal: AbortSignal.timeout(6000) });
+    const type = (res.headers.get("content-type") || "").split(";")[0].trim();
+    if (!res.ok || !/^image\//.test(type)) return;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length || buf.length > 200 * 1024) return;
+    const icon = `data:${type};base64,${buf.toString("base64")}`;
+    config.icons = config.icons || {};
+    if (config.icons[a.id] === icon) return;
+    config.icons[a.id] = icon;
+    saveConfig();
+    sendState();
+  } catch {}
+}
+// Before an app's page has loaded (or when it isn't answering yet): its /favicon.ico.
+function fetchMissingIcons() {
+  for (const a of enabledApps()) if (!(config.icons || {})[a.id]) fetchAppIcon(a, `${a.url}/favicon.ico`);
+}
+
 // ---- window state --------------------------------------------------------------
 function windowState() {
   const s = config.window;
@@ -493,8 +523,6 @@ function createWindow() {
     x: st.x, y: st.y, width: st.width, height: st.height, minWidth: 900, minHeight: 560,
     title: "ArrDeck", icon: ICON, backgroundColor: BG, show: false,
     titleBarStyle: "hidden",
-    // 1px shorter than our bar, so the white line under it runs under Windows' buttons too.
-    titleBarOverlay: { color: BG, symbolColor: "#ffffff", height: TITLE_H - 1 },
     webPreferences: OWN,
   });
   // (Maximising a hidden window shows it: started in the tray, maximise on first show instead.)
@@ -542,6 +570,7 @@ function createWindow() {
     delay += 1200;
   }
   startDashboard();
+  fetchMissingIcons();
 }
 
 // ---- Home dashboard ------------------------------------------------------------
@@ -791,6 +820,13 @@ const ownPage = (e) => {
 ipcMain.handle("state:get", (e) => { if (ownPage(e)) setTimeout(sendState, 0); return null; });
 ipcMain.on("tab:select", (e, id) => { if (ownPage(e)) { closeSettings(); select(String(id)); } });
 ipcMain.on("tab:nav", (e, action) => { if (ownPage(e)) navAction(String(action)); });
+// ArrDeck's own window buttons.
+ipcMain.on("win:action", (e, action) => {
+  if (!ownPage(e) || !win) return;
+  if (action === "minimize") win.minimize();
+  else if (action === "maximize") (win.isMaximized() ? win.unmaximize() : win.maximize());
+  else if (action === "close") win.close();
+});
 ipcMain.on("settings:toggle", (e) => { if (ownPage(e)) toggleSettings(); });
 ipcMain.on("settings:close", (e) => { if (ownPage(e)) closeSettings(); });
 ipcMain.handle("settings:get", (e) => (ownPage(e) ? publicSettings() : null));

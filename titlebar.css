@@ -5,10 +5,10 @@ body::after { content: ""; position: fixed; left: 0; right: 0; top: 37px; height
 /* The draggable bar; env() = the space left of Windows' min/max/close buttons. */
 .bar {
   position: fixed;
-  left: env(titlebar-area-x, 0);
-  top: env(titlebar-area-y, 0);
-  width: env(titlebar-area-width, 100%);
-  height: env(titlebar-area-height, 38px);
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 37px;
   display: flex;
   align-items: stretch;
   gap: 4px;
@@ -88,3 +88,20 @@ body.framed::before { content: ""; position: fixed; inset: 1px 1px 2px 1px; bord
 .tab.dragging { opacity: .4; }
 .tab.dropBefore { box-shadow: inset 3px 0 0 var(--gold); }
 .tab.dropAfter { box-shadow: inset -3px 0 0 var(--gold); }
+
+/* Window buttons (minimise / maximise / close), drawn by ArrDeck: full bar height, Windows' width. */
+.winctl { display: flex; align-self: stretch; margin-left: 6px; -webkit-app-region: no-drag; }
+.winctl button { width: 46px; height: 100%; border-radius: 0; padding: 0; display: grid; place-items: center; }
+.winctl svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; shape-rendering: crispEdges; }
+.winctl button:hover { background: #333; }
+.winctl button.close:hover { background: var(--bad); color: #fff; }
+.winctl .restore { display: none; }
+body.maximized .winctl .max { display: none; }
+body.maximized .winctl .restore { display: block; }
+
+/* App icon on a tab, with the status dot as a badge on its corner. */
+.appicon { position: relative; width: 18px; height: 18px; flex: none; }
+.appicon img { width: 18px; height: 18px; display: block; object-fit: contain; }
+.appicon .dot { position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; outline: 2px solid var(--bg); }
+.tab:hover .appicon .dot { outline-color: var(--hover); }
+.tab.active .appicon .dot { outline-color: #111; }

@@ -6,7 +6,7 @@
 
 ## Features
 
-- **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr and Jellyseerr one switch away. A status dot on every tab: green running, amber warnings, red errors or not answering.
+- **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr and Jellyseerr one switch away. Every tab shows its app's own icon with a status dot: green running, amber warnings, red errors or not answering.
 - **Your sign-ins stay.** Every app has its own saved session: sign in once in its tab and ArrDeck remembers it. Each app also remembers the page you were on and its own zoom.
 - **Home dashboard.** Sub-tabs for an Overview and the full Downloads (with progress and import problems), Coming up (episodes, movies, albums), Missing, Health, Requests and Alerts lists — from every app at once. Click anything to jump to it in its app.
 - **Missing and Cutoff unmet on Home.** Each app's Wanted → Missing and Wanted → Cutoff Unmet (have it, but not in the quality you want yet), folder-style: click an app, then a show, to see its episodes. Search one, Search all of a show, or Search all per app (asks first).

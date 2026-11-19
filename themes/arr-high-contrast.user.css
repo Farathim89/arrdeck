@@ -1,7 +1,7 @@
 /* ==UserStyle==
 @name           Arr High contrast (Animekeeper style)
 @namespace      farathim.animekeeper
-@version        1.0.0
+@version        1.0.1
 @description    Black, white and gold for Sonarr, Radarr, Lidarr, Prowlarr (and Readarr / Whisparr) - the High contrast theme of Animekeeper and Shelfkeeper.
 @author         Farathim
 @license        MIT
@@ -190,6 +190,12 @@
     --progressBarBackTextColor: #ffffff !important;
     --progressBarBackgroundColor: #333333 !important;
   }
+
+  /* check boxes (class names like "CheckInput/primaryIsChecked/abc12"): a black tick on the bright
+     gold / green / amber fill; unchecked ones black with a white edge instead of plain white */
+  [class*="CheckInput/primaryIsChecked"], [class*="CheckInput/successIsChecked"],
+  [class*="CheckInput/warningIsChecked"] { color: #000000 !important; }
+  [class*="CheckInput/isNotChecked"] { background-color: #000000 !important; border-color: #ffffff !important; }
 
   /* a clear focus ring everywhere (keyboard use) */
   :focus-visible {

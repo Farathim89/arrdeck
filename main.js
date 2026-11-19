@@ -11,7 +11,7 @@
 
 const {
   app, BrowserWindow, WebContentsView, ipcMain, shell, session, nativeTheme, safeStorage, screen,
-  Tray, Menu, Notification, dialog,
+  Tray, Menu, Notification, dialog, webFrameMain,
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -264,6 +264,44 @@ function ignoreWindowsTheme(c) {
   } catch (err) { console.error("theme", err.message); }
 }
 
+// A sign-in pop-up: 520 x up to 700 points, never taller than the screen, centred over ArrDeck.
+function popupBounds() {
+  const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+  const width = Math.min(520, wa.width - 40);
+  const height = Math.min(700, wa.height - 40);
+  const b = win.getBounds();
+  const x = Math.round(Math.min(Math.max(b.x + (b.width - width) / 2, wa.x + 10), wa.x + wa.width - width - 10));
+  const y = Math.round(Math.min(Math.max(b.y + (b.height - height) / 2, wa.y + 10), wa.y + wa.height - height - 10));
+  return { x, y, width, height };
+}
+// Plex's sign-in page (Seerr's "Sign in with Plex") is white with a bright gold button and taller
+// than a 300%-scaled screen. Dark High contrast look in every plex.tv frame (the form is in a
+// frame; Plex's class names are scrambled, so this goes by element type), shown at 85% so it fits.
+const PLEX_DARK_CSS = `
+  html, body { background-color: #000 !important; color: #fff !important; }
+  body * { background-color: transparent !important; color: #fff !important; border-color: #666 !important; }
+  button, [role="button"] { background-color: #111 !important; color: #fff !important; border: 1px solid #fff !important; }
+  button:hover, [role="button"]:hover { background-color: #333 !important; border-color: #ffd700 !important; }
+  input, select, textarea { background-color: #111 !important; color: #fff !important; border: 1px solid #fff !important; }
+  input::placeholder { color: #999 !important; }
+  a { color: #ffd700 !important; }
+  :focus-visible { outline: 2px solid #ffd700 !important; outline-offset: 2px; }
+`;
+const isPlexPage = (url) => /^https:\/\/([a-z0-9-]+\.)*plex\.tv\//i.test(url || "");
+function darkPlexPages(wc) {
+  const inject = `(() => { if (document.getElementById("arrdeck-dark")) return;
+    const s = document.createElement("style"); s.id = "arrdeck-dark"; s.textContent = ${JSON.stringify(PLEX_DARK_CSS)};
+    (document.head || document.documentElement).appendChild(s); })()`;
+  const style = (frame) => { if (frame && isPlexPage(frame.url)) frame.executeJavaScript(inject).catch(() => {}); };
+  wc.on("dom-ready", () => {
+    style(wc.mainFrame);
+    if (isPlexPage(wc.getURL())) wc.setZoomFactor(0.85);
+  });
+  wc.on("did-frame-finish-load", (_e, _isMain, processId, routingId) => {
+    try { style(webFrameMain.fromId(processId, routingId)); } catch {}
+  });
+}
+
 function errorPage(a, desc) {
   const esc = (s) => String(s).replace(/[<>&"]/g, "");
   const html = `<!doctype html><meta charset="utf-8"><body style="margin:0;height:100vh;display:grid;place-items:center;background:#000;color:#fff;font:15px 'Segoe UI',sans-serif;forced-color-adjust:none">
@@ -337,15 +375,18 @@ function createAppView(a) {
     if (popup || isPlexAuth(url) || url === "about:blank") {
       return {
         action: "allow",
-        overrideBrowserWindowOptions: { parent: win, width: 600, height: 760, autoHideMenuBar: true, backgroundColor: BG, icon: ICON },
+        overrideBrowserWindowOptions: { parent: win, ...popupBounds(), autoHideMenuBar: true, backgroundColor: BG, icon: ICON },
       };
     }
     if (sameOrigin(url, entry.app.url)) c.loadURL(url);
     else openExternal(url);
     return { action: "deny" };
   });
-  // Pop-ups (sign-in windows) ignore the Windows theme too.
-  c.on("did-create-window", (child) => ignoreWindowsTheme(child.webContents));
+  // Pop-ups (sign-in windows): no Windows theme, and Plex's sign-in in the dark High contrast look.
+  c.on("did-create-window", (child) => {
+    ignoreWindowsTheme(child.webContents);
+    darkPlexPages(child.webContents);
+  });
   win.contentView.addChildView(view);
   views.set(a.id, entry);
   return entry;

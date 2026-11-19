@@ -1,4 +1,5 @@
-// Home dashboard: app tiles, download queue, coming up, health.
+// Home dashboard: sub-tabs (Overview, Downloads, Coming up, Health, Requests, Alerts),
+// app tiles, the download queue with its buttons, Seerr requests with Approve / Decline.
 const deck = window.arrdeck;
 const $ = (id) => document.getElementById(id);
 let data = null;
@@ -65,7 +66,7 @@ function renderApps() {
     t.appendChild(el("span", "st " + cls, text));
     const info = el("div", "info");
     const parts = [];
-    if (a.state === "ok" && a.queue) parts.push([a.queue.length, "in queue"]);
+    if (a.state === "ok" && a.hasQueue) parts.push([a.queue.length, "in queue"]);
     if (a.requests) parts.push([a.requests.pending || 0, "pending"], [a.requests.processing || 0, "processing"], [a.requests.available || 0, "available"]);
     if (a.badges) parts.push([a.badges.episodes || 0, "episodes"], [a.badges.movies || 0, "movies"]);
     if (a.version) parts.push(["v" + a.version, ""]);
@@ -82,31 +83,68 @@ function renderApps() {
   $("keyHint").classList.toggle("hidden", !data.apps.some((a) => a.state === "nokey"));
 }
 
-function renderQueue() {
-  const box = $("queue");
+// ---- sub-tabs ------------------------------------------------------------------------------
+const TABS = ["overview", "downloads", "calendar", "health", "requests", "alerts"];
+let tab = "overview";
+try { const t = localStorage.getItem("homeTab"); if (TABS.includes(t)) tab = t; } catch {}
+function showTab(t) {
+  if (!TABS.includes(t)) t = "overview";
+  if (t === "requests" && $("requestsTab").classList.contains("hidden")) t = "overview";
+  tab = t;
+  try { localStorage.setItem("homeTab", t); } catch {}
+  document.querySelectorAll("#subtabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
+  document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("active", p.id === "p-" + t));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("#subtabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+// Ctrl+Left / Ctrl+Right steps through the sub-tabs.
+document.addEventListener("keydown", (e) => {
+  if (!e.ctrlKey || e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+  const shown = TABS.filter((t) => t !== "requests" || !$("requestsTab").classList.contains("hidden"));
+  const i = shown.indexOf(tab);
+  showTab(shown[(i + (e.key === "ArrowRight" ? 1 : -1) + shown.length) % shown.length]);
+  e.preventDefault();
+});
+// The count on a sub-tab (and in its boxes' headings). cls: "warn" / "bad" / "gold" colours it.
+function setCount(name, n, cls = "") {
+  document.querySelectorAll(`[data-n="${name}"]`).forEach((x) => { x.textContent = n ? String(n) : ""; x.className = "n " + cls; });
+  document.querySelectorAll(`[data-count="${name}"]`).forEach((x) => { x.textContent = n ? `(${n})` : ""; });
+}
+// On Overview a list stops after a few; "See all" goes to its own tab.
+function seeAll(box, name, total, shown) {
+  if (total <= shown) return;
+  const b = el("button", "seeAll", `See all ${total} →`);
+  b.type = "button";
+  b.addEventListener("click", () => showTab(name));
+  box.appendChild(b);
+}
+
+// ---- downloads -----------------------------------------------------------------------------
+function queueRow(q) {
+  const row = el("div", "item" + (q.error ? " error" : q.warn ? " warn" : ""));
+  const mid = el("div");
+  mid.style.minWidth = "0";
+  mid.append(el("div", "title", q.title));
+  if (q.sub) mid.append(el("div", "sub", q.sub));
+  const right = el("div", "right");
+  right.append(el("b", null, `${q.progress}%`));
+  const extra = [q.timeLeft && timeLeft(q.timeLeft), q.sizeLeft && bytes(q.sizeLeft) + " left", q.status].filter(Boolean).join(" · ");
+  if (extra) right.append(el("div", null, extra));
+  const prog = el("div", "progress");
+  const fill = el("i"); fill.style.width = q.progress + "%";
+  prog.appendChild(fill);
+  row.append(tag(q.app), mid, right, prog);
+  if (q.message) row.append(el("div", "msg", q.message));
+  row.append(queueButtons(q));
+  row.title = [q.client, q.protocol].filter(Boolean).join(" · ");
+  row.addEventListener("click", () => deck.open(q.app, q.link));
+  return row;
+}
+function renderQueue(box, limit) {
   box.textContent = "";
-  $("queueCount").textContent = data.queue.length ? `(${data.queue.length})` : "";
   if (!data.queue.length) { box.appendChild(el("div", "empty", "Nothing downloading.")); return; }
-  for (const q of data.queue) {
-    const row = el("div", "item" + (q.error ? " error" : q.warn ? " warn" : ""));
-    const mid = el("div");
-    mid.style.minWidth = "0";
-    mid.append(el("div", "title", q.title));
-    if (q.sub) mid.append(el("div", "sub", q.sub));
-    const right = el("div", "right");
-    right.append(el("b", null, `${q.progress}%`));
-    const extra = [q.timeLeft && timeLeft(q.timeLeft), q.sizeLeft && bytes(q.sizeLeft) + " left", q.status].filter(Boolean).join(" · ");
-    if (extra) right.append(el("div", null, extra));
-    const prog = el("div", "progress");
-    const fill = el("i"); fill.style.width = q.progress + "%";
-    prog.appendChild(fill);
-    row.append(tag(q.app), mid, right, prog);
-    if (q.message) row.append(el("div", "msg", q.message));
-    row.append(queueButtons(q));
-    row.title = [q.client, q.protocol].filter(Boolean).join(" · ");
-    row.addEventListener("click", () => deck.open(q.app, q.link));
-    box.appendChild(row);
-  }
+  data.queue.slice(0, limit).forEach((q) => box.appendChild(queueRow(q)));
+  seeAll(box, "downloads", data.queue.length, limit);
 }
 
 // Search again / Remove… / Grab now, under a queue row. Their answer shows next to them.
@@ -152,13 +190,12 @@ function queueButtons(q) {
   return bar;
 }
 
-function renderCalendar() {
-  const box = $("calendar");
+// ---- coming up -----------------------------------------------------------------------------
+function renderCalendar(box, limit) {
   box.textContent = "";
-  $("calCount").textContent = data.calendar.length ? `(${data.calendar.length})` : "";
   if (!data.calendar.length) { box.appendChild(el("div", "empty", `Nothing in the next ${data.days} days.`)); return; }
   let lastDay = "";
-  for (const c of data.calendar) {
+  for (const c of data.calendar.slice(0, limit)) {
     const d = new Date(c.when);
     const label = dayLabel(d);
     if (label !== lastDay) {
@@ -176,18 +213,20 @@ function renderCalendar() {
     row.addEventListener("click", () => deck.open(c.app, c.link));
     box.appendChild(row);
   }
+  seeAll(box, "calendar", data.calendar.length, limit);
 }
 
-function renderHealth() {
-  const box = $("health");
+// ---- health --------------------------------------------------------------------------------
+function renderHealth(box, limit) {
   box.textContent = "";
-  $("healthCount").textContent = data.health.length ? `(${data.health.length})` : "";
   if (!data.health.length) {
     const ok = data.apps.some((a) => a.state === "ok");
     box.appendChild(el("div", "empty", ok ? "All good - no warnings." : "No health info yet (needs API keys)."));
     return;
   }
-  for (const h of data.health) {
+  // Errors first.
+  const list = [...data.health].sort((a, b) => (a.type === "error" ? 0 : 1) - (b.type === "error" ? 0 : 1));
+  for (const h of list.slice(0, limit)) {
     const row = el("div", "hitem");
     row.append(tag(h.app), el("span", "htype " + h.type, h.type), el("div", null, h.message));
     if (h.wiki) {
@@ -198,35 +237,110 @@ function renderHealth() {
     } else row.append(el("span"));
     box.appendChild(row);
   }
+  seeAll(box, "health", list.length, limit);
 }
 
-function render(d) {
-  data = d;
-  if (!data || !data.apps) return;
-  renderApps();
-  renderQueue();
-  renderCalendar();
-  renderHealth();
-  $("updated").textContent = "Updated " + new Date(data.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+// ---- Seerr requests ------------------------------------------------------------------------
+const REQ_STATUS = { 1: ["Waiting", "warn"], 2: ["Approved", "ok"], 3: ["Declined", "bad"], 4: ["Failed", "bad"], 5: ["Done", "ok"] };
+const MEDIA_STATUS = { 3: "downloading", 4: "partly available", 5: "available" };
+function ago(when) {
+  const s = (Date.now() - new Date(when)) / 1000;
+  if (!when || isNaN(s)) return "";
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
+function requestRow(r, withButtons) {
+  const row = el("div", "item req");
+  const mid = el("div");
+  mid.style.minWidth = "0";
+  mid.append(el("div", "title", r.title + (r.year ? ` (${r.year})` : "")));
+  mid.append(el("div", "sub", [r.type === "tv" ? "Series" : "Movie", r.seasons, r.is4k ? "4K" : "", r.by ? `by ${r.by}` : "", ago(r.at)].filter(Boolean).join(" · ")));
+  const right = el("div", "right");
+  const [st, cls] = REQ_STATUS[r.status] || ["", ""];
+  if (!withButtons && st) right.append(el("b", "rstate " + cls, st));
+  if (!withButtons && MEDIA_STATUS[r.mediaStatus]) right.append(el("div", null, MEDIA_STATUS[r.mediaStatus]));
+  row.append(tag(r.app), mid, right);
+  if (withButtons) {
+    const bar = el("div", "qactions");
+    const note = el("span", "qnote");
+    for (const [label, action, tip] of [["Approve", "approve", "Approve: Seerr sends it to Sonarr / Radarr"], ["Decline", "decline", "Decline the request"]]) {
+      const b = el("button", "qbtn" + (action === "approve" ? " go" : ""), label);
+      b.type = "button";
+      b.title = tip;
+      b.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        bar.querySelectorAll("button").forEach((x) => (x.disabled = true));
+        note.textContent = "…";
+        note.className = "qnote";
+        const res = await deck.requestAction(r.app, r.id, action);
+        bar.querySelectorAll("button").forEach((x) => (x.disabled = false));
+        if (!res) { note.textContent = ""; return; }
+        note.textContent = res.message;
+        note.className = "qnote " + (res.ok ? "ok" : "bad");
+      });
+      bar.appendChild(b);
+    }
+    bar.appendChild(note);
+    row.appendChild(bar);
+  }
+  row.addEventListener("click", () => deck.open(r.app, r.link));
+  return row;
+}
+function renderRequests(box, list, limit, withButtons, empty) {
+  box.textContent = "";
+  if (!list.length) { box.appendChild(el("div", "empty", empty)); return; }
+  list.slice(0, limit).forEach((r) => box.appendChild(requestRow(r, withButtons)));
+  seeAll(box, "requests", list.length, limit);
 }
 
-deck.onHome(render);
-
-// What ArrDeck alerted about (download done, health, an app down / back), newest first.
-deck.onAlerts((list) => {
+// ---- alerts --------------------------------------------------------------------------------
+let alertList = [];
+function renderAlerts() {
   const box = $("alerts");
   box.textContent = "";
-  $("alertBox").classList.toggle("hidden", !list.length);
-  $("alertCount").textContent = list.length ? `(${list.length})` : "";
-  for (const a of list.slice(0, 8)) {
+  setCount("alerts", alertList.length);
+  if (!alertList.length) { box.appendChild(el("div", "empty", "No alerts yet.")); return; }
+  for (const a of alertList) {
     const row = el("div", "alert");
     const time = new Date(a.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     const mid = el("div");
     mid.style.minWidth = "0";
     mid.append(el("div", "title", a.title), el("div", "sub", (a.body || "").replace(/\n/g, " · ")));
     row.append(el("span", "atime", time), mid);
-    row.addEventListener("click", () => deck.open(a.tab, null));
+    row.addEventListener("click", () => (a.tab === "home" ? showTab("overview") : deck.open(a.tab, null)));
     box.appendChild(row);
   }
-});
+}
+deck.onAlerts((list) => { alertList = list || []; renderAlerts(); });
+
+// ---- all of it -----------------------------------------------------------------------------
+function render(d) {
+  data = d;
+  if (!data || !data.apps) return;
+  const requests = data.requests || [];
+  const hasSeerr = data.apps.some((a) => a.kind === "seerr" && a.state === "ok");
+  $("requestsTab").classList.toggle("hidden", !hasSeerr);
+  $("ov-requestsBox").classList.toggle("hidden", !hasSeerr);
+  setCount("downloads", data.queue.length, data.queue.some((q) => q.error) ? "bad" : data.queue.some((q) => q.warn) ? "warn" : "");
+  setCount("calendar", data.calendar.length);
+  setCount("health", data.health.length, data.health.some((h) => h.type === "error") ? "bad" : data.health.length ? "warn" : "");
+  setCount("requests", requests.length, requests.length ? "gold" : "");
+  renderApps();
+  renderQueue($("ov-downloads"), 4);
+  renderCalendar($("ov-calendar"), 6);
+  renderHealth($("ov-health"), 4);
+  renderRequests($("ov-requests"), requests, 4, true, "Nothing waiting.");
+  renderQueue($("downloads"), Infinity);
+  renderCalendar($("calendar"), Infinity);
+  renderHealth($("health"), Infinity);
+  renderRequests($("requests"), requests, Infinity, true, "Nothing waiting for approval.");
+  renderRequests($("recentRequests"), data.recentRequests || [], Infinity, false, "No requests yet.");
+  if (tab === "requests" && !hasSeerr) showTab("overview");
+  $("updated").textContent = "Updated " + new Date(data.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+deck.onHome(render);
+showTab(tab);
+renderAlerts();
 $("refresh").addEventListener("click", () => { $("updated").textContent = "Refreshing…"; deck.refresh(); });

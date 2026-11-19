@@ -70,6 +70,41 @@ function queueItem(app, r) {
   };
 }
 
+// ---- Seerr requests ----------------------------------------------------------------------
+// Seerr's request list has TMDB ids, not titles: look each one up once and remember it.
+const titleCache = new Map();
+async function mediaTitle(app, key, type, tmdbId) {
+  const k = `${app.url}|${type}|${tmdbId}`;
+  if (titleCache.has(k)) return titleCache.get(k);
+  let t = { title: `${type === "tv" ? "Series" : "Movie"} #${tmdbId}`, year: "" };
+  try {
+    const m = await get(app, key, `/${type === "tv" ? "tv" : "movie"}/${tmdbId}`);
+    t = { title: m.title || m.name || t.title, year: String(m.releaseDate || m.firstAirDate || "").slice(0, 4) };
+    titleCache.set(k, t);
+  } catch {}
+  return t;
+}
+// Request status: 1 waiting for approval, 2 approved, 3 declined (4 failed, 5 completed in newer Seerr).
+// Media status: 3 processing, 4 partly available, 5 available.
+async function requestItem(app, key, r) {
+  const type = r.type === "tv" ? "tv" : "movie";
+  const tmdbId = r.media && r.media.tmdbId;
+  const { title, year } = tmdbId ? await mediaTitle(app, key, type, tmdbId) : { title: "?", year: "" };
+  const seasons = Array.isArray(r.seasons) ? r.seasons.map((s) => s.seasonNumber).filter((n) => n != null) : [];
+  return {
+    app: app.id, id: r.id, type, title, year, is4k: !!r.is4k,
+    seasons: type === "tv" && seasons.length ? (seasons.length > 4 ? `${seasons.length} seasons` : `Season ${seasons.join(", ")}`) : "",
+    by: (r.requestedBy && (r.requestedBy.displayName || r.requestedBy.username || r.requestedBy.email)) || "",
+    at: r.createdAt || "", status: r.status, mediaStatus: r.media ? r.media.status : 0,
+    link: tmdbId ? `/${type}/${tmdbId}` : "/requests",
+  };
+}
+async function requestAction(app, key, id, action) {
+  if (!key) throw new Error(`no API key for ${app.name}`);
+  if (action !== "approve" && action !== "decline") throw new Error("unknown action");
+  return send(app, key, "POST", `/request/${encodeURIComponent(id)}/${action}`);
+}
+
 // The Home queue's buttons. action: "remove" | "blocklist" (remove + find another) | "search" | "grab".
 async function send(app, key, method, path, body) {
   const headers = { Accept: "application/json", "X-Api-Key": key };
@@ -139,7 +174,7 @@ function calendarItems(app, list, start, end) {
 
 // One app's part of the dashboard. Never throws: problems end up in `state`.
 async function fetchApp(app, key, days) {
-  const res = { id: app.id, name: app.name, kind: app.kind, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, badges: null };
+  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], badges: null };
   res.up = await isUp(app);
   if (!res.up) { res.state = "down"; return res; }
   if (app.kind === "web") { res.state = "ok"; return res; }   // a plain web page: no API
@@ -165,9 +200,16 @@ async function fetchApp(app, key, days) {
       }
       await Promise.all(jobs);
     } else if (app.kind === "seerr") {
-      const [status, count] = await Promise.all([get(app, key, "/status"), get(app, key, "/request/count")]);
+      const [status, count, pending, recent] = await Promise.all([
+        get(app, key, "/status"), get(app, key, "/request/count"),
+        get(app, key, "/request?take=50&skip=0&filter=pending&sort=added"),
+        get(app, key, "/request?take=15&skip=0&filter=all&sort=modified"),
+      ]);
       res.version = status.version || "";
       res.requests = count;
+      const list = (x) => (x && Array.isArray(x.results) ? x.results : []);
+      res.pending = await Promise.all(list(pending).map((r) => requestItem(app, key, r)));
+      res.recent = await Promise.all(list(recent).filter((r) => r.status !== 1).map((r) => requestItem(app, key, r)));
     } else if (app.kind === "bazarr") {
       const badges = await get(app, key, "/badges");
       res.badges = badges && badges.data ? badges.data : badges;
@@ -190,9 +232,11 @@ async function fetchDashboard(apps, keyFor, days) {
     at: Date.now(),
     apps: parts,
     queue: parts.flatMap((p) => p.queue),
+    requests: parts.flatMap((p) => p.pending),
+    recentRequests: parts.flatMap((p) => p.recent),
     calendar: parts.flatMap((p) => p.calendar).sort(byTime),
     health: parts.flatMap((p) => p.health),
   };
 }
 
-module.exports = { fetchDashboard, isUp, queueAction };
+module.exports = { fetchDashboard, isUp, queueAction, requestAction };

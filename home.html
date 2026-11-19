@@ -14,25 +14,61 @@
         <span class="updated" id="updated">Loading…</span>
         <button type="button" class="secondary" id="refresh">Refresh</button>
       </div>
-      <section class="apps" id="apps"></section>
-      <section class="box hidden" id="alertBox">
-        <h2>Recent alerts <span class="count" id="alertCount"></span></h2>
-        <div id="alerts"></div>
+
+      <!-- Sub-tabs: Overview has a bit of everything, the others the whole list. -->
+      <nav class="subtabs" id="subtabs" role="tablist">
+        <button type="button" data-tab="overview">Overview</button>
+        <button type="button" data-tab="downloads">Downloads <span class="n" data-n="downloads"></span></button>
+        <button type="button" data-tab="calendar">Coming up <span class="n" data-n="calendar"></span></button>
+        <button type="button" data-tab="health">Health <span class="n" data-n="health"></span></button>
+        <button type="button" data-tab="requests" id="requestsTab">Requests <span class="n" data-n="requests"></span></button>
+        <button type="button" data-tab="alerts">Alerts <span class="n" data-n="alerts"></span></button>
+      </nav>
+
+      <section class="pane" id="p-overview">
+        <section class="apps" id="apps"></section>
+        <p class="hint hidden" id="keyHint">Add your apps' <b>API keys</b> in ArrDeck settings (gear, top right → Apps → <b>Find my API keys</b>) to see their queue, calendar and health here.</p>
+        <div class="cols">
+          <section class="box">
+            <h2>Downloading <span class="count" data-count="downloads"></span></h2>
+            <div id="ov-downloads"></div>
+          </section>
+          <section class="box">
+            <h2>Coming up <span class="count" data-count="calendar"></span></h2>
+            <div id="ov-calendar"></div>
+          </section>
+        </div>
+        <div class="cols">
+          <section class="box">
+            <h2>Health <span class="count" data-count="health"></span></h2>
+            <div id="ov-health"></div>
+          </section>
+          <section class="box" id="ov-requestsBox">
+            <h2>Waiting for approval <span class="count" data-count="requests"></span></h2>
+            <div id="ov-requests"></div>
+          </section>
+        </div>
       </section>
-      <p class="hint hidden" id="keyHint">Add your apps' <b>API keys</b> in ArrDeck settings (gear, top right → Apps) to see their queue, calendar and health here.</p>
-      <div class="cols">
-        <section class="box" id="queueBox">
-          <h2>Downloading <span class="count" id="queueCount"></span></h2>
-          <div id="queue"></div>
+
+      <section class="pane" id="p-downloads">
+        <section class="box"><h2>Downloading <span class="count" data-count="downloads"></span></h2><div id="downloads"></div></section>
+      </section>
+      <section class="pane" id="p-calendar">
+        <section class="box"><h2>Coming up <span class="count" data-count="calendar"></span></h2><div id="calendar"></div></section>
+      </section>
+      <section class="pane" id="p-health">
+        <section class="box"><h2>Health <span class="count" data-count="health"></span></h2><div id="health"></div></section>
+      </section>
+      <section class="pane" id="p-requests">
+        <section class="box"><h2>Waiting for approval <span class="count" data-count="requests"></span></h2><div id="requests"></div></section>
+        <section class="box"><h2>Recent requests</h2><div id="recentRequests"></div></section>
+      </section>
+      <section class="pane" id="p-alerts">
+        <section class="box">
+          <h2>Recent alerts <span class="count" data-count="alerts"></span></h2>
+          <p class="note">Downloads that finished, new health warnings and errors, apps that stopped answering and new requests, since ArrDeck started (Settings → Window &amp; alerts).</p>
+          <div id="alerts"></div>
         </section>
-        <section class="box" id="calBox">
-          <h2>Coming up <span class="count" id="calCount"></span></h2>
-          <div id="calendar"></div>
-        </section>
-      </div>
-      <section class="box" id="healthBox">
-        <h2>Health <span class="count" id="healthCount"></span></h2>
-        <div id="health"></div>
       </section>
     </main>
     <script src="home.js"></script>

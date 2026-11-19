@@ -16,7 +16,7 @@ const {
 const path = require("path");
 const fs = require("fs");
 const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
-const { fetchDashboard, isUp, queueAction } = require("./dashboard");
+const { fetchDashboard, isUp, queueAction, requestAction } = require("./dashboard");
 const createUpdater = require("./update");
 const { findKeys } = require("./keyfinder");
 
@@ -51,6 +51,7 @@ const DEFAULTS = {
   startMenu: false,      // a Start menu entry (outside ArrDeck's folder, so opt-in)
   notifyDownloads: true, // "Downloaded: …" when something leaves the queue finished
   notifyHealth: true,    // new health warnings / errors, an app that stops answering
+  notifyRequests: true,  // a new Seerr request waiting for approval
   keyDirs: [],           // extra folders to look for API keys in
   lastTab: "home",
   window: null,
@@ -619,6 +620,14 @@ function notifyChanges(prev, next) {
     if (done.length === 1) notify(`Downloaded: ${done[0].title}`, [done[0].sub, appName(done[0].app)].filter(Boolean).join(" · "), done[0].app);
     else if (done.length > 1) notify(`${done.length} downloads finished`, done.slice(0, 4).map((q) => q.title + (q.sub ? ` (${q.sub.split(" · ")[0]})` : "")).join("\n"), "home");
   }
+  if (config.notifyRequests) {
+    const seenReq = new Set((prev.requests || []).map((r) => `${r.app}|${r.id}`));
+    const okBefore = new Set(prev.apps.filter((p) => p.state === "ok").map((p) => p.id));
+    const fresh = (next.requests || []).filter((r) => okBefore.has(r.app) && !seenReq.has(`${r.app}|${r.id}`));
+    for (const r of fresh.slice(0, 3)) {
+      notify(`New request: ${r.title}${r.year ? ` (${r.year})` : ""}`, [r.seasons, r.is4k ? "4K" : "", r.by ? `by ${r.by}` : ""].filter(Boolean).join(" · "), "home");
+    }
+  }
   if (config.notifyHealth) {
     const hKey = (h) => `${h.app}|${h.type}|${h.message}`;
     const seen = new Set(prev.health.map(hKey));
@@ -721,6 +730,7 @@ function publicSettings() {
     portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
     notifyDownloads: config.notifyDownloads,
     notifyHealth: config.notifyHealth,
+    notifyRequests: config.notifyRequests,
     keyDirs: config.keyDirs || [],
     types: Object.entries(TYPES).map(([id, t]) => ({ id, label: t.label })),
     updateCheck: config.updateCheck !== false,
@@ -777,7 +787,7 @@ ipcMain.handle("settings:set", (e, { key, value } = {}) => {
   } else if (key === "homeDays") {
     config.homeDays = Math.max(1, Math.min(31, Number(value) || 7));
     refreshDashboard(true);
-  } else if (["updateCheck", "minimizeToTray", "closeToTray", "notifyDownloads", "notifyHealth"].includes(key)) {
+  } else if (["updateCheck", "minimizeToTray", "closeToTray", "notifyDownloads", "notifyHealth", "notifyRequests"].includes(key)) {
     config[key] = !!value;
   } else if (key === "startMenu") {
     config.startMenu = !!value;
@@ -910,6 +920,21 @@ ipcMain.handle("home:queue-action", async (e, { app: appId, qid, action } = {}) 
     if (action !== "search") setTimeout(() => refreshDashboard(true), 1500);   // the queue changed
     const done = { remove: "Removed.", blocklist: "Removed - looking for another release.", search: "Searching…", grab: "Sent to the download client." };
     return { ok: true, message: done[action] };
+  } catch (err) {
+    return { ok: false, message: `Didn't work: ${err.message}` };
+  }
+});
+// Seerr requests on Home: Approve / Decline.
+ipcMain.handle("home:request-action", async (e, { app: appId, id, action } = {}) => {
+  if (!ownPage(e) || !dash) return null;
+  const a = appById(String(appId));
+  const item = (dash.requests || []).find((r) => r.app === appId && String(r.id) === String(id));
+  if (!a || !item) return { ok: false, message: "It's not waiting any more." };
+  if (action !== "approve" && action !== "decline") return null;
+  try {
+    await requestAction(a, getKey(a.id), item.id, action);
+    setTimeout(() => refreshDashboard(true), 1200);
+    return { ok: true, message: action === "approve" ? "Approved." : "Declined." };
   } catch (err) {
     return { ok: false, message: `Didn't work: ${err.message}` };
   }

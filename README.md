@@ -8,7 +8,8 @@
 
 - **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr and Jellyseerr one switch away. A status dot on every tab: green running, amber warnings, red errors or not answering.
 - **Your sign-ins stay.** Every app has its own saved session: sign in once in its tab and ArrDeck remembers it. Each app also remembers the page you were on and its own zoom.
-- **Home dashboard.** The download queue with progress and import problems, what's coming up in the next days (episodes, movies, albums), health warnings and Seerr's requests — from every app at once. Click anything to jump to it in its app.
+- **Home dashboard.** Sub-tabs for an Overview and the full Downloads (with progress and import problems), Coming up (episodes, movies, albums), Health, Requests and Alerts lists — from every app at once. Click anything to jump to it in its app.
+- **Seerr requests on Home.** What's waiting for approval, with Approve / Decline, and what was requested lately (with its status). Optional alert for each new request.
 - **High contrast look, built in.** Black, white and gold inside Sonarr, Radarr, Lidarr, Prowlarr, Readarr, Seerr, Jellyseerr and Bazarr — no browser extension needed. Can be switched off.
 - **Ignores the Windows theme.** A Windows contrast theme or light mode doesn't wash out the apps: ArrDeck always shows its own colours.
 - **Finds your API keys.** *Find my API keys* reads them from the apps' own settings files on this PC (`config.xml`, Seerr's `settings.json`, Bazarr's `config.yaml` — Windows installs or a Docker `appdata` folder) and matches them to your tabs by app and port. No copy-pasting.

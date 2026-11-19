@@ -211,9 +211,11 @@ function layout() {
   if (!win) return;
   const { width, height } = win.getContentBounds();
   const top = win.isFullScreen() ? 0 : TITLE_H;
-  const edge = framed() ? 1 : 0;
-  // (2 at the bottom: at high display scaling the last pixels of the window can be cut off)
-  const b = { x: edge, y: top, width: Math.max(0, width - 2 * edge), height: Math.max(0, height - top - 2 * edge) };
+  // Windows 11 draws its own 1-point window border over the outermost pixels (black with a
+  // contrast theme), so ArrDeck's white line sits 1 point inside it and the apps 2 points in.
+  const edge = framed() ? 2 : 0;
+  // (the bottom 1 point more: at high display scaling the last pixels of a window get rounded off)
+  const b = { x: edge, y: top, width: Math.max(0, width - 2 * edge), height: Math.max(0, height - top - edge - (edge ? 1 : 0)) };
   for (const v of views.values()) v.view.setBounds(b);
   if (settingsView) settingsView.setBounds(b);
 }

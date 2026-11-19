@@ -15,7 +15,7 @@
 - **Tray and alerts.** Minimise (or ✕) to the tray, start with Windows, pin it to the taskbar. Alerts when a download is done, a new health warning or error shows up, or an app stops answering: on Home (Recent alerts), as a red dot on the tray icon, and as Windows notifications (with the optional Start menu entry).
 - **Queue buttons on Home.** Search again, Grab now (skip a delay) and Remove — or Remove and find another (blocklists the release) — right from the dashboard.
 - **Your own tabs, your order.** Add a second Sonarr / Radarr (anime, 4K…) with the dashboard and the look, or any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab. Drag tabs to reorder them, rename any tab.
-- **Fully portable.** One `ArrDeck.exe`; settings and sign-ins live in `ArrDeck-data` next to it. Nothing in AppData, no installer.
+- **Fully portable.** One `ArrDeck.exe`; settings and sign-ins live in `ArrDeck-data` next to it. No installer, nothing in AppData (unless you switch on the optional Start menu entry).
 - **Updates itself.** When a new version is out, the title bar shows *Update x.y.z*: one click downloads it, checks its SHA-256 and swaps the .exe. Nothing installs without a click.
 
 ![Settings](docs/settings.png)

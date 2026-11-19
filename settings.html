@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self';" />
+    <title>ArrDeck settings</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <div class="backdrop" id="backdrop"></div>
+    <section class="panel" role="dialog" aria-label="ArrDeck settings">
+      <header>
+        <h1>ArrDeck settings</h1>
+        <button type="button" class="close" id="close" title="Close (Esc)">✕</button>
+      </header>
+      <div class="body">
+        <nav id="nav">
+          <button type="button" data-pane="apps" class="active">Apps</button>
+          <button type="button" data-pane="look">Look</button>
+          <button type="button" data-pane="home">Home dashboard</button>
+          <button type="button" data-pane="about">About</button>
+        </nav>
+        <div class="panes">
+          <div class="pane active" id="apps">
+            <h2>Your apps</h2>
+            <p class="note">Switch an app on to give it a tab. Each app keeps its own sign-in: you sign in once in its tab and ArrDeck remembers it.</p>
+            <div id="appList"></div>
+            <h2>Add an app</h2>
+            <p class="note">Another Sonarr / Radarr / … (say, one for anime or 4K) gets the Home dashboard and the High contrast look too. <b>Other web page</b> adds any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab.</p>
+            <div class="addForm">
+              <label>Name <input type="text" id="addName" placeholder="Sonarr Anime" spellcheck="false" /></label>
+              <label>Address <input type="text" id="addUrl" placeholder="http://127.0.0.1:8990" spellcheck="false" /></label>
+              <label>Type <select id="addType"></select></label>
+              <button type="button" class="primary" id="addBtn">Add</button>
+            </div>
+            <p class="note result" id="addResult"></p>
+          </div>
+
+          <div class="pane" id="look">
+            <h2>Colours</h2>
+            <label class="row"><span>High contrast look inside the apps<small>black, white and gold in Sonarr, Radarr, Lidarr, Prowlarr, Readarr, Seerr, Jellyseerr, Bazarr</small></span><input type="checkbox" data-key="highContrast" /></label>
+            <p class="note">ArrDeck always uses its own colours: it ignores the Windows theme (light / dark mode and contrast themes).</p>
+            <h2>Zoom</h2>
+            <p class="note">Each app remembers its own zoom: <b>Ctrl +</b> / <b>Ctrl -</b> / <b>Ctrl 0</b> in its tab.</p>
+          </div>
+
+          <div class="pane" id="home">
+            <h2>Home dashboard</h2>
+            <p class="note">Home shows the download queue, what's coming up and health warnings from all apps. It needs each app's <b>API key</b> (paste them on the <b>Apps</b> page). Apps without a key just show if they're running.</p>
+            <label class="row"><span>Coming up: days ahead</span>
+              <select data-key="homeDays"><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+            <label class="row"><span>Refresh every</span>
+              <select data-key="refreshSecs"><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="900">15 minutes</option></select></label>
+          </div>
+
+          <div class="pane" id="about">
+            <h2>ArrDeck</h2>
+            <p class="note">Version <b id="version"></b> · by Farathim · <a href="https://github.com/Farathim89/arrdeck" target="_blank">github.com/Farathim89/arrdeck</a></p>
+            <h2>Updates</h2>
+            <div class="updateRow"><button type="button" class="primary" id="updateBtn">Check for updates</button><span class="note" id="updateState"></span></div>
+            <label class="row"><span>Look for updates by itself<small>a few seconds after start, then twice a day; nothing installs without a click</small></span><input type="checkbox" data-key="updateCheck" /></label>
+            <h2>Your data</h2>
+            <p class="note">Your settings and sign-ins are saved in <b id="dataDir"></b>.</p>
+            <button type="button" class="secondary" id="openData">Open that folder</button>
+            <h2>Keys</h2>
+            <table class="keys">
+              <tr><td>Ctrl+1 … Ctrl+9</td><td>Go to tab 1 … 9</td></tr>
+              <tr><td>Ctrl+Tab / Ctrl+Shift+Tab</td><td>Next / previous tab</td></tr>
+              <tr><td>F5 or Ctrl+R</td><td>Reload</td></tr>
+              <tr><td>Alt+Left / Alt+Right</td><td>Back / forward (mouse side buttons too)</td></tr>
+              <tr><td>Alt+Home</td><td>The app's start page</td></tr>
+              <tr><td>Ctrl + / Ctrl - / Ctrl 0</td><td>Zoom</td></tr>
+              <tr><td>F11</td><td>Full screen</td></tr>
+              <tr><td>Ctrl+,</td><td>These settings</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    <template id="appTpl">
+      <div class="app">
+        <div class="appHead">
+          <i class="swatch"></i><b class="appName"></b><span class="kindNote"></span>
+          <span class="state"></span>
+          <input type="checkbox" class="on" title="Show this app" />
+        </div>
+        <div class="fields">
+          <label>Address <input type="text" class="url" spellcheck="false" /></label>
+          <label class="keyField">API key <input type="password" class="key" spellcheck="false" autocomplete="off" /></label>
+          <div class="btns">
+            <button type="button" class="secondary test">Test</button>
+            <button type="button" class="secondary where">Where's the key?</button>
+            <button type="button" class="secondary signout" title="Forget this app's sign-in (you'll sign in again)">Sign out</button>
+            <button type="button" class="secondary forget hidden" title="Remove the saved API key">Forget key</button>
+            <button type="button" class="secondary remove hidden" title="Remove this tab from ArrDeck">Remove tab</button>
+          </div>
+          <p class="note result"></p>
+        </div>
+      </div>
+    </template>
+    <script src="settings.js"></script>
+  </body>
+</html>

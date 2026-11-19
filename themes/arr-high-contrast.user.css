@@ -1,0 +1,199 @@
+/* ==UserStyle==
+@name           Arr High contrast (Animekeeper style)
+@namespace      farathim.animekeeper
+@version        1.0.0
+@description    Black, white and gold for Sonarr, Radarr, Lidarr, Prowlarr (and Readarr / Whisparr) - the High contrast theme of Animekeeper and Shelfkeeper.
+@author         Farathim
+@license        MIT
+==/UserStyle== */
+
+/* Any address with an *arr app's port: localhost, 127.0.0.1 or a LAN address. Ports are the apps' defaults:
+   Sonarr 8989, Radarr 7878, Lidarr 8686, Prowlarr 9696, Readarr 8787, Whisparr 6969. */
+@-moz-document regexp("https?://[^/]+:(8989|7878|8686|9696|8787|6969)(/.*)?") {
+  /* The apps set their colours on the page as it runs; !important wins over those. */
+  :root {
+    /* text */
+    --textColor: #ffffff !important;
+    --defaultColor: #ffffff !important;
+    --disabledColor: #cccccc !important;
+    --dimColor: #999999 !important;
+    --helpTextColor: #cccccc !important;
+    --infoTextColor: #ffffff !important;
+    --white: #ffffff !important;
+    --offWhite: #ffffff !important;
+
+    /* status colours (as in the apps' Ready / Problem / Check / Review) */
+    --primaryColor: #ffd700 !important;
+    --selectedColor: #ffd700 !important;
+    --successColor: #00ff66 !important;
+    --dangerColor: #ff4040 !important;
+    --warningColor: #ffb020 !important;
+    --infoColor: #40c0ff !important;
+    --torrentColor: #00ff66 !important;
+    --usenetColor: #40c0ff !important;
+    --queueColor: #40c0ff !important;
+    --blue: #40c0ff !important;
+
+    /* each app's own colour -> gold */
+    --sonarrBlue: #ffd700 !important;
+    --radarrYellow: #ffd700 !important;
+    --lidarrGreen: #ffd700 !important;
+    --prowlarrOrange: #ffd700 !important;
+
+    /* page, header, sidebar, toolbar */
+    --themeBlue: #ffd700 !important;
+    --themeAlternateBlue: #ffd700 !important;
+    --themeAlternateYellow: #ffd700 !important;
+    --themeRed: #ff4040 !important;
+    --themeDarkColor: #000000 !important;
+    --themeLightColor: #111111 !important;
+    --pageBackground: #000000 !important;
+    --pageFooterBackground: #000000 !important;
+    --pageFooterBackgroud: #000000 !important;
+    --pageHeaderBackgroundColor: #000000 !important;
+    --sidebarColor: #ffffff !important;
+    --sidebarBackgroundColor: #000000 !important;
+    --sidebarActiveBackgroundColor: #444444 !important;
+    --toolbarColor: #ffffff !important;
+    --toolbarBackgroundColor: #000000 !important;
+    --toolbarMenuItemBackgroundColor: #111111 !important;
+    --toolbarMenuItemHoverBackgroundColor: #444444 !important;
+    --toolbarLabelColor: #ffffff !important;
+    --toobarButtonHoverColor: #ffd700 !important;
+    --toobarButtonSelectedColor: #ffd700 !important;
+
+    /* labels and links */
+    --inverseLabelColor: #ffffff !important;
+    --inverseLabelTextColor: #000000 !important;
+    --disabledLabelColor: #999999 !important;
+    --linkColor: #ffd700 !important;
+    --linkHoverColor: #ffe866 !important;
+    --defaultLinkHoverColor: #ffd700 !important;
+
+    /* borders and fields */
+    --borderColor: #ffffff !important;
+    --inputBorderColor: #ffffff !important;
+    --inputBoxShadowColor: rgba(255, 255, 255, 0.1) !important;
+    --inputFocusBorderColor: #ffd700 !important;
+    --inputFocusBoxShadowColor: rgba(255, 215, 0, 0.6) !important;
+    --inputErrorBorderColor: #ff4040 !important;
+    --inputErrorBoxShadowColor: rgba(255, 64, 64, 0.6) !important;
+    --inputWarningBorderColor: #ffb020 !important;
+    --inputWarningBoxShadowColor: rgba(255, 176, 32, 0.6) !important;
+    --inputBackgroundColor: #111111 !important;
+    --inputReadOnlyBackgroundColor: #0d0d0d !important;
+    --inputHoverBackgroundColor: rgba(255, 215, 0, 0.18) !important;
+    --inputSelectedBackgroundColor: rgba(255, 215, 0, 0.12) !important;
+    --advancedFormLabelColor: #ffb020 !important;
+    --disabledCheckInputColor: #cccccc !important;
+    --disabledInputColor: #999999 !important;
+    --sliderAccentColor: #ffd700 !important;
+
+    /* buttons: dark fills with bright edges, so white text stays readable (like the apps' main buttons) */
+    --defaultButtonTextColor: #ffffff !important;
+    --defaultBackgroundColor: #111111 !important;
+    --defaultButtonBackgroundColor: #111111 !important;
+    --defaultBorderColor: #ffffff !important;
+    --defaultHoverBackgroundColor: #444444 !important;
+    --defaultHoverBorderColor: #ffd700 !important;
+    --primaryBackgroundColor: #332b00 !important;
+    --primaryBorderColor: #ffd700 !important;
+    --primaryHoverBackgroundColor: #4d4100 !important;
+    --primaryHoverBorderColor: #ffd700 !important;
+    --successBackgroundColor: #00331a !important;
+    --successBorderColor: #00ff66 !important;
+    --successHoverBackgroundColor: #004d26 !important;
+    --successHoverBorderColor: #00ff66 !important;
+    --warningBackgroundColor: #332300 !important;
+    --warningBorderColor: #ffb020 !important;
+    --warningHoverBackgroundColor: #4d3500 !important;
+    --warningHoverBorderColor: #ffb020 !important;
+    --dangerBackgroundColor: #330d0d !important;
+    --dangerBorderColor: #ff4040 !important;
+    --dangerHoverBackgroundColor: #4d1313 !important;
+    --dangerHoverBorderColor: #ff4040 !important;
+    --iconButtonDisabledColor: #777777 !important;
+    --iconButtonHoverColor: #ffd700 !important;
+    --iconButtonHoverLightColor: #ffd700 !important;
+
+    /* colour-impaired mode's stripes */
+    --colorImpairedGradient: #777777 !important;
+    --colorImpairedGradientDark: #333333 !important;
+    --colorImpairedDangerGradient: #ff4040 !important;
+    --colorImpairedWarningGradient: #ffb020 !important;
+    --colorImpairedPrimaryGradient: #ffd700 !important;
+    --colorImpairedGrayGradient: #999999 !important;
+
+    /* windows, menus, popovers */
+    --modalBackdropBackgroundColor: rgba(0, 0, 0, 0.8) !important;
+    --modalBackgroundColor: #0d0d0d !important;
+    --modalCloseButtonHoverColor: #ffd700 !important;
+    --menuItemColor: #ffffff !important;
+    --menuItemHoverColor: #ffd700 !important;
+    --menuItemHoverBackgroundColor: #444444 !important;
+    --popoverTitleBackgroundColor: #111111 !important;
+    --popoverTitleBorderColor: #ffffff !important;
+    --popoverBodyBackgroundColor: #000000 !important;
+    --popoverShadowColor: rgba(255, 255, 255, 0.15) !important;
+    --popoverArrowBorderColor: #ffffff !important;
+    --popoverTitleBackgroundInverseColor: #111111 !important;
+    --popoverTitleBorderInverseColor: #ffffff !important;
+    --popoverArrowBorderInverseColor: #ffffff !important;
+    --popoverShadowInverseColor: rgba(255, 255, 255, 0.15) !important;
+    --scrollbarBackgroundColor: #cccccc !important;
+    --scrollbarHoverBackgroundColor: #ffd700 !important;
+
+    /* cards, posters, lists */
+    --cardBackgroundColor: #0d0d0d !important;
+    --cardShadowColor: #000000 !important;
+    --cardAlternateBackgroundColor: #111111 !important;
+    --cardCenterBackgroundColor: #0d0d0d !important;
+    --tableRowHoverBackgroundColor: rgba(255, 215, 0, 0.12) !important;
+    --addSeriesBackgroundColor: #0d0d0d !important;
+    --seriesBackgroundColor: #0d0d0d !important;
+    --addMovieBackgroundColor: #0d0d0d !important;
+    --movieBackgroundColor: #0d0d0d !important;
+    --addArtistBackgroundColor: #0d0d0d !important;
+    --artistBackgroundColor: #0d0d0d !important;
+    --albumBackgroundColor: #0d0d0d !important;
+    --trackBackgroundColor: #0d0d0d !important;
+    --searchIconContainerBackgroundColor: #111111 !important;
+    --collapseButtonBackgroundColor: #0d0d0d !important;
+    --seasonBackgroundColor: #111111 !important;
+    --episodesBackgroundColor: #0d0d0d !important;
+    --chartBackgroundColor: #0d0d0d !important;
+    --logEventsBackgroundColor: #000000 !important;
+
+    /* alerts */
+    --alertDangerBorderColor: #ff4040 !important;
+    --alertDangerBackgroundColor: rgba(255, 64, 64, 0.12) !important;
+    --alertDangerColor: #ffffff !important;
+    --alertInfoBorderColor: #40c0ff !important;
+    --alertInfoBackgroundColor: rgba(64, 192, 255, 0.12) !important;
+    --alertInfoColor: #ffffff !important;
+    --alertSuccessBorderColor: #00ff66 !important;
+    --alertSuccessBackgroundColor: rgba(0, 255, 102, 0.12) !important;
+    --alertSuccessColor: #ffffff !important;
+    --alertWarningBorderColor: #ffb020 !important;
+    --alertWarningBackgroundColor: rgba(255, 176, 32, 0.12) !important;
+    --alertWarningColor: #ffffff !important;
+
+    /* calendar */
+    --calendarTodayBackgroundColor: #332b00 !important;
+    --calendarBackgroundColor: #000000 !important;
+    --calendarBorderColor: #ffffff !important;
+    --calendarTextDim: #ffffff !important;
+    --calendarTextDimAlternate: #ffffff !important;
+
+    /* progress bars */
+    --progressBarFrontTextColor: #000000 !important;
+    --progressBarBackTextColor: #ffffff !important;
+    --progressBarBackgroundColor: #333333 !important;
+  }
+
+  /* a clear focus ring everywhere (keyboard use) */
+  :focus-visible {
+    outline: 2px solid #ffd700 !important;
+    outline-offset: 1px;
+  }
+}

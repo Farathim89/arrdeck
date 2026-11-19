@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self';" />
+    <title>Home</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="home.css" />
+  </head>
+  <body>
+    <main>
+      <div class="top">
+        <h1>Home</h1>
+        <span class="updated" id="updated">Loading…</span>
+        <button type="button" class="secondary" id="refresh">Refresh</button>
+      </div>
+      <section class="apps" id="apps"></section>
+      <p class="hint hidden" id="keyHint">Add your apps' <b>API keys</b> in ArrDeck settings (gear, top right → Apps) to see their queue, calendar and health here.</p>
+      <div class="cols">
+        <section class="box" id="queueBox">
+          <h2>Downloading <span class="count" id="queueCount"></span></h2>
+          <div id="queue"></div>
+        </section>
+        <section class="box" id="calBox">
+          <h2>Coming up <span class="count" id="calCount"></span></h2>
+          <div id="calendar"></div>
+        </section>
+      </div>
+      <section class="box" id="healthBox">
+        <h2>Health <span class="count" id="healthCount"></span></h2>
+        <div id="health"></div>
+      </section>
+    </main>
+    <script src="home.js"></script>
+  </body>
+</html>

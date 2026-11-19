@@ -1,0 +1,28 @@
+/* ArrDeck's own pages: the High contrast look (black, white, gold). */
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+  --dim: #cccccc;
+  --line: #ffffff;
+  --soft: #555555;
+  --hover: #222222;
+  --gold: #ffd700;
+  --ok: #00ff66;
+  --bad: #ff4040;
+  --warn: #ffb020;
+  --info: #40c0ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--fg);
+  forced-color-adjust: none;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #666; border: 3px solid #000; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }

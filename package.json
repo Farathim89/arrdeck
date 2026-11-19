@@ -1,0 +1,62 @@
+{
+  "name": "arrdeck",
+  "productName": "ArrDeck",
+  "version": "1.0.0",
+  "description": "ArrDeck: Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window, with a Home dashboard and a High contrast look",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "author": "Farathim",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "electron": "32.3.3",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.farathim.arrdeck",
+    "productName": "ArrDeck",
+    "copyright": "Copyright © 2026 Farathim — GPL-3.0-or-later",
+    "files": [
+      "LICENSE",
+      "build/icon.ico",
+      "main.js",
+      "apps.js",
+      "dashboard.js",
+      "update.js",
+      "preload.js",
+      "titlebar.html",
+      "titlebar.css",
+      "titlebar.js",
+      "settings.html",
+      "settings.css",
+      "settings.js",
+      "home.html",
+      "home.css",
+      "home.js",
+      "common.css",
+      "themes/*.css"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "ArrDeck.exe"
+    }
+  },
+  "homepage": "https://github.com/Farathim89/arrdeck",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Farathim89/arrdeck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Farathim89/arrdeck/issues"
+  }
+}

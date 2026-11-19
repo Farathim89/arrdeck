@@ -1,0 +1,78 @@
+html, body { height: 100%; overflow: hidden; background: var(--bg); user-select: none; }
+/* The white line under the bar runs the full width, under Windows' buttons too. */
+body::after { content: ""; position: fixed; left: 0; right: 0; top: 37px; height: 1px; background: var(--line); }
+
+/* The draggable bar; env() = the space left of Windows' min/max/close buttons. */
+.bar {
+  position: fixed;
+  left: env(titlebar-area-x, 0);
+  top: env(titlebar-area-y, 0);
+  width: env(titlebar-area-width, 100%);
+  height: env(titlebar-area-height, 38px);
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding-left: 12px;
+  padding-bottom: 1px;
+  -webkit-app-region: drag;
+}
+.bar > * { align-self: center; }
+
+.logo { width: 18px; height: 18px; flex: none; fill: var(--gold); }
+.brand { font-size: 13px; font-weight: 700; letter-spacing: .3px; margin: 0 0 0 4px; color: var(--gold); }
+.ver { font-size: 11px; color: var(--dim); margin: 1px 10px 0 6px; }
+
+/* "Update 1.0.1" - shown only when GitHub has a newer ArrDeck. */
+.update { -webkit-app-region: no-drag; flex: none; margin-right: 6px; padding: 3px 12px; border: 1px solid var(--gold);
+  border-radius: 999px; color: var(--gold); font-size: 12px; font-weight: 700; }
+.update:hover { background: #332b00; }
+.update.hidden { display: none; }
+
+.group { display: flex; -webkit-app-region: no-drag; }
+
+button { background: none; border: 0; border-radius: 4px; font-size: 13px; padding: 5px 9px; cursor: pointer; }
+button:hover { background: var(--hover); }
+button:disabled { opacity: .35; cursor: default; background: none; }
+
+.icon { padding: 4px 6px; display: grid; place-items: center; }
+.icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon.on { color: var(--gold); }
+
+/* Tabs: one per app. The tab you're on is gold with a gold line under it. */
+.tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-self: stretch;
+  align-items: stretch;
+  margin-left: 8px;
+  overflow: hidden;
+}
+.tab {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 14px;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tab span.name { overflow: hidden; text-overflow: ellipsis; }
+.tab:hover { background: var(--hover); }
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); background: #111; }
+
+/* Status dot: green = running, amber = warnings, red = errors / not answering, grey = unknown. */
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1.5px #888; }
+.dot.up { background: var(--ok); box-shadow: none; }
+.dot.warn { background: var(--warn); box-shadow: none; }
+.dot.error, .dot.down { background: var(--bad); box-shadow: none; }
+.tab .home { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.badge { background: var(--warn); color: #000; border-radius: 9px; font-size: 11px; padding: 0 6px; line-height: 16px; }
+.badge.error { background: var(--bad); color: #fff; }
+
+body.blurred .logo, body.blurred .brand, body.blurred button { opacity: .6; }

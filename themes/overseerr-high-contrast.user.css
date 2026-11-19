@@ -1,0 +1,60 @@
+/* ==UserStyle==
+@name           Overseerr High contrast (Animekeeper style)
+@namespace      farathim.animekeeper
+@version        1.0.0
+@description    Black, white and gold for Overseerr / Jellyseerr - the High contrast theme of Animekeeper and Shelfkeeper.
+@author         Farathim
+@license        MIT
+==/UserStyle== */
+
+/* Overseerr 5055, Jellyseerr 5056 (any host). Overseerr is built with Tailwind: its greys and indigo accents are
+   classes, so those classes are re-coloured here. */
+@-moz-document regexp("https?://[^/]+:(5055|5056)(/.*)?") {
+  html, body, #__next { background-color: #000000 !important; color: #ffffff !important; }
+
+  /* surfaces: the greys from darkest to lightest */
+  .bg-gray-900, .bg-gray-900\/90, .bg-gray-900\/80, .bg-black { background-color: #000000 !important; }
+  .bg-gray-800, .bg-gray-800\/90, .bg-gray-800\/80, .bg-gray-800\/75, .bg-gray-800\/50 { background-color: #0d0d0d !important; }
+  .bg-gray-700, .bg-gray-700\/50, .bg-gray-600 { background-color: #111111 !important; }
+  .hover\:bg-gray-700:hover, .hover\:bg-gray-600:hover, .hover\:bg-gray-800:hover { background-color: #444444 !important; }
+  .from-gray-900, .from-gray-800 { --tw-gradient-from: #000000 !important; }
+  .to-gray-900, .to-gray-800 { --tw-gradient-to: #000000 !important; }
+
+  /* text */
+  .text-white, .text-gray-100, .text-gray-200 { color: #ffffff !important; }
+  .text-gray-300, .text-gray-400 { color: #e6e6e6 !important; }
+  .text-gray-500, .text-gray-600 { color: #cccccc !important; }
+
+  /* borders */
+  .border-gray-800, .border-gray-700, .border-gray-600, .border-gray-500,
+  .divide-gray-700 > * + *, .divide-gray-800 > * + * { border-color: #ffffff !important; }
+  .ring-gray-700, .ring-gray-500 { --tw-ring-color: #ffffff !important; }
+
+  /* accent: indigo -> gold (dark fill, gold edge, white text - like the apps' main buttons) */
+  [class*="bg-indigo-"] { background-color: #332b00 !important; border-color: #ffd700 !important; }
+  [class*="hover:bg-indigo-"]:hover { background-color: #4d4100 !important; }
+  [class*="text-indigo-"] { color: #ffd700 !important; }
+  [class*="border-indigo-"] { border-color: #ffd700 !important; }
+  [class*="ring-indigo-"], [class*="focus:ring-indigo-"]:focus { --tw-ring-color: #ffd700 !important; }
+  a:hover { color: #ffd700 !important; }
+
+  /* status */
+  [class*="bg-green-"] { background-color: #00331a !important; border-color: #00ff66 !important; }
+  [class*="text-green-"] { color: #00ff66 !important; }
+  [class*="bg-red-"] { background-color: #330d0d !important; border-color: #ff4040 !important; }
+  [class*="text-red-"] { color: #ff4040 !important; }
+  [class*="bg-yellow-"], [class*="bg-orange-"] { background-color: #332300 !important; border-color: #ffb020 !important; }
+  [class*="text-yellow-"], [class*="text-orange-"] { color: #ffb020 !important; }
+  [class*="bg-blue-"] { background-color: #00263d !important; border-color: #40c0ff !important; }
+  [class*="text-blue-"] { color: #40c0ff !important; }
+
+  /* fields */
+  input, select, textarea {
+    background-color: #111111 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+  }
+  input::placeholder, textarea::placeholder { color: #999999 !important; }
+
+  :focus-visible { outline: 2px solid #ffd700 !important; outline-offset: 1px; }
+}

@@ -1,0 +1,57 @@
+# ArrDeck
+
+**Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window** — a small portable Windows app with a tab per app, a Home dashboard (downloads, what's coming up, health warnings from all of them) and a black, white and gold High contrast look.
+
+![Home dashboard](docs/home.png)
+
+## Features
+
+- **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr and Jellyseerr one switch away. A status dot on every tab: green running, amber warnings, red errors or not answering.
+- **Your sign-ins stay.** Every app has its own saved session: sign in once in its tab and ArrDeck remembers it. Each app also remembers the page you were on and its own zoom.
+- **Home dashboard.** The download queue with progress and import problems, what's coming up in the next days (episodes, movies, albums), health warnings and Seerr's requests — from every app at once. Click anything to jump to it in its app.
+- **High contrast look, built in.** Black, white and gold inside Sonarr, Radarr, Lidarr, Prowlarr, Readarr, Seerr, Jellyseerr and Bazarr — no browser extension needed. Can be switched off.
+- **Ignores the Windows theme.** A Windows contrast theme or light mode doesn't wash out the apps: ArrDeck always shows its own colours.
+- **Your own tabs.** Add a second Sonarr / Radarr (anime, 4K…) with the dashboard and the look, or any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab.
+- **Fully portable.** One `ArrDeck.exe`; settings and sign-ins live in `ArrDeck-data` next to it. Nothing in AppData, no installer.
+- **Updates itself.** When a new version is out, the title bar shows *Update x.y.z*: one click downloads it, checks its SHA-256 and swaps the .exe. Nothing installs without a click.
+
+![Settings](docs/settings.png)
+
+## Download
+
+Get `ArrDeck.exe` from the [latest release](https://github.com/Farathim89/arrdeck/releases/latest), put it in a folder of its own and start it. Windows SmartScreen may warn about an unknown app the first time (the .exe isn't code-signed): *More info → Run anyway*.
+
+## First steps
+
+1. ArrDeck expects the apps on this PC at their usual ports (`127.0.0.1:8989`, `7878`, `8686`, `9696`, `5055`). Different address? **Settings (gear, top right) → Apps**.
+2. Sign in to each app in its tab, as you would in a browser.
+3. For the Home dashboard, paste each app's **API key** in *Settings → Apps* (*Where's the key?* opens the right page: Settings → General in each app). Keys are stored encrypted with Windows' own data protection, only on this PC.
+
+## Keys
+
+| Keys | Does |
+| --- | --- |
+| Ctrl+1 … Ctrl+9 | Go to tab 1 … 9 |
+| Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
+| F5 or Ctrl+R | Reload |
+| Alt+Left / Alt+Right (mouse side buttons) | Back / forward |
+| Alt+Home | The app's start page |
+| Ctrl + / Ctrl - / Ctrl 0 | Zoom |
+| F11 | Full screen |
+| Ctrl+, | Settings |
+
+## Build from source
+
+Needs [Node.js](https://nodejs.org/) 20 or newer.
+
+```
+npm install
+npm start          # run it
+npm run dist       # build dist\ArrDeck.exe
+```
+
+The High contrast styles are in `themes/` as Stylus user styles (`.user.css`); ArrDeck strips the Stylus wrapper and injects the rules itself, so they also work in a browser with Stylus.
+
+## License
+
+GPL-3.0-or-later. ArrDeck is not affiliated with Sonarr, Radarr, Lidarr, Prowlarr, Readarr, Bazarr, Seerr or Jellyseerr.

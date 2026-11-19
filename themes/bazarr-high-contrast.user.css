@@ -1,0 +1,122 @@
+/* ==UserStyle==
+@name           Bazarr High contrast (Animekeeper style)
+@namespace      farathim.animekeeper
+@version        1.0.0
+@description    Black, white and gold for Bazarr - the High contrast theme of Animekeeper and Shelfkeeper.
+@author         Farathim
+@license        MIT
+==/UserStyle== */
+
+/* Bazarr 6767 (any host). Bazarr is built with Mantine (v7 in the 1.5 releases, v9 on master): Mantine takes every
+   colour from --mantine-color-* variables, so those are overridden here (dark colour scheme). */
+@-moz-document regexp("https?://[^/]+:6767(/.*)?") {
+  :root, :root[data-mantine-color-scheme="dark"], :root[data-mantine-color-scheme="light"] {
+    color-scheme: dark !important;
+
+    /* the dark scale: 0-3 text, 4 borders, 5 hover, 6 fields / buttons, 7-9 page */
+    --mantine-color-dark-0: #ffffff !important;
+    --mantine-color-dark-1: #ffffff !important;
+    --mantine-color-dark-2: #e6e6e6 !important;
+    --mantine-color-dark-3: #cccccc !important;
+    --mantine-color-dark-4: #ffffff !important;
+    --mantine-color-dark-5: #444444 !important;
+    --mantine-color-dark-6: #111111 !important;
+    --mantine-color-dark-7: #000000 !important;
+    --mantine-color-dark-8: #000000 !important;
+    --mantine-color-dark-9: #000000 !important;
+
+    /* page, text, borders */
+    --mantine-color-body: #000000 !important;
+    --mantine-color-text: #ffffff !important;
+    --mantine-color-bright: #ffffff !important;
+    --mantine-color-dimmed: #cccccc !important;
+    --mantine-color-placeholder: #999999 !important;
+    --mantine-color-anchor: #ffd700 !important;
+    --mantine-color-default: #111111 !important;
+    --mantine-color-default-hover: #444444 !important;
+    --mantine-color-default-color: #ffffff !important;
+    --mantine-color-default-border: #ffffff !important;
+    --mantine-color-disabled: #222222 !important;
+    --mantine-color-disabled-color: #999999 !important;
+    --mantine-color-disabled-border: #666666 !important;
+    --mantine-color-error: #ff4040 !important;
+
+    /* Bazarr's purple (brand / primary) -> gold: dark fill, gold edge, white text - like the apps' main buttons */
+    --mantine-color-brand-0: #ffd700 !important; --mantine-color-brand-1: #ffd700 !important;
+    --mantine-color-brand-2: #ffd700 !important; --mantine-color-brand-3: #ffd700 !important;
+    --mantine-color-brand-4: #ffd700 !important; --mantine-color-brand-5: #ffd700 !important;
+    --mantine-color-brand-6: #ffd700 !important; --mantine-color-brand-7: #ffd700 !important;
+    --mantine-color-brand-8: #ffd700 !important; --mantine-color-brand-9: #ffd700 !important;
+    --mantine-color-brand-filled: #332b00 !important;
+    --mantine-color-brand-filled-hover: #4d4100 !important;
+    --mantine-color-brand-light: rgba(255, 215, 0, 0.15) !important;
+    --mantine-color-brand-light-hover: rgba(255, 215, 0, 0.25) !important;
+    --mantine-color-brand-light-color: #ffd700 !important;
+    --mantine-color-brand-outline: #ffd700 !important;
+    --mantine-color-brand-outline-hover: rgba(255, 215, 0, 0.15) !important;
+    --mantine-color-brand-text: #ffd700 !important;
+    --mantine-primary-color-filled: #332b00 !important;
+    --mantine-primary-color-filled-hover: #4d4100 !important;
+    --mantine-primary-color-light: rgba(255, 215, 0, 0.15) !important;
+    --mantine-primary-color-light-hover: rgba(255, 215, 0, 0.25) !important;
+    --mantine-primary-color-light-color: #ffd700 !important;
+    --mantine-primary-color-contrast: #ffffff !important;
+    --mantine-primary-color-0: #ffd700 !important; --mantine-primary-color-1: #ffd700 !important;
+    --mantine-primary-color-2: #ffd700 !important; --mantine-primary-color-3: #ffd700 !important;
+    --mantine-primary-color-4: #ffd700 !important; --mantine-primary-color-5: #ffd700 !important;
+    --mantine-primary-color-6: #ffd700 !important; --mantine-primary-color-7: #ffd700 !important;
+    --mantine-primary-color-8: #ffd700 !important; --mantine-primary-color-9: #ffd700 !important;
+
+    /* status colours (as in the apps' Ready / Problem / Check / Review) */
+    --mantine-color-success-filled: #00331a !important; --mantine-color-success-filled-hover: #004d26 !important;
+    --mantine-color-success-light: rgba(0, 255, 102, 0.12) !important; --mantine-color-success-light-color: #00ff66 !important;
+    --mantine-color-success-text: #00ff66 !important; --mantine-color-success-outline: #00ff66 !important;
+    --mantine-color-danger-filled: #330d0d !important; --mantine-color-danger-filled-hover: #4d1414 !important;
+    --mantine-color-danger-light: rgba(255, 64, 64, 0.12) !important; --mantine-color-danger-light-color: #ff4040 !important;
+    --mantine-color-danger-text: #ff4040 !important; --mantine-color-danger-outline: #ff4040 !important;
+    --mantine-color-warning-filled: #332300 !important; --mantine-color-warning-filled-hover: #4d3500 !important;
+    --mantine-color-warning-light: rgba(255, 176, 32, 0.12) !important; --mantine-color-warning-light-color: #ffb020 !important;
+    --mantine-color-warning-text: #ffb020 !important; --mantine-color-warning-outline: #ffb020 !important;
+    --mantine-color-info-filled: #00263d !important; --mantine-color-info-filled-hover: #00395c !important;
+    --mantine-color-info-light: rgba(64, 192, 255, 0.12) !important; --mantine-color-info-light-color: #40c0ff !important;
+    --mantine-color-info-text: #40c0ff !important; --mantine-color-info-outline: #40c0ff !important;
+  }
+
+  /* filled buttons and badges get an edge in their colour, so the dark fill still reads as a button */
+  .mantine-Button-root[data-variant="filled"], .mantine-ActionIcon-root[data-variant="filled"],
+  .mantine-Badge-root[data-variant="filled"] {
+    border: 1px solid var(--mantine-color-brand-outline) !important;
+    color: #ffffff !important;
+  }
+  .mantine-Button-root[data-variant="filled"][style*="danger"], .mantine-Badge-root[data-variant="filled"][style*="danger"] { border-color: #ff4040 !important; }
+  .mantine-Button-root[data-variant="filled"][style*="success"], .mantine-Badge-root[data-variant="filled"][style*="success"] { border-color: #00ff66 !important; }
+  .mantine-Button-root[data-variant="filled"][style*="warning"], .mantine-Badge-root[data-variant="filled"][style*="warning"] { border-color: #ffb020 !important; }
+
+  /* fields */
+  .mantine-Input-input, .mantine-PillsInput-input {
+    background-color: #111111 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+  }
+
+  /* tables: white lines, black rows, a visible stripe */
+  .mantine-Table-table {
+    --table-border-color: #ffffff !important;
+    --table-striped-color: #111111 !important;
+    --table-hover-color: #333333 !important;
+  }
+
+  /* menus, pop-ups and dialogs: black with a white edge */
+  .mantine-Menu-dropdown, .mantine-Popover-dropdown, .mantine-Combobox-dropdown, .mantine-Select-dropdown,
+  .mantine-Modal-content, .mantine-Notification-root, .mantine-Spotlight-content {
+    background-color: #000000 !important;
+    border: 1px solid #ffffff !important;
+  }
+  .mantine-Modal-header { background-color: #000000 !important; }
+
+  /* a clear focus ring everywhere (keyboard use) */
+  :focus-visible {
+    outline: 2px solid #ffd700 !important;
+    outline-offset: 1px;
+  }
+}

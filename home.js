@@ -66,7 +66,7 @@ function renderApps() {
     t.appendChild(el("span", "st " + cls, text));
     const info = el("div", "info");
     const parts = [];
-    if (a.state === "ok" && a.hasQueue) parts.push([a.queue.length, "in queue"]);
+    if (a.state === "ok" && a.hasQueue) parts.push([a.queue.length, "in queue"], [a.missing || 0, "missing"]);
     if (a.requests) parts.push([a.requests.pending || 0, "pending"], [a.requests.processing || 0, "processing"], [a.requests.available || 0, "available"]);
     if (a.badges) parts.push([a.badges.episodes || 0, "episodes"], [a.badges.movies || 0, "movies"]);
     if (a.version) parts.push(["v" + a.version, ""]);
@@ -84,12 +84,12 @@ function renderApps() {
 }
 
 // ---- sub-tabs ------------------------------------------------------------------------------
-const TABS = ["overview", "downloads", "calendar", "health", "requests", "alerts"];
+const TABS = ["overview", "downloads", "calendar", "missing", "health", "requests", "alerts"];
 let tab = "overview";
 try { const t = localStorage.getItem("homeTab"); if (TABS.includes(t)) tab = t; } catch {}
 function showTab(t) {
   if (!TABS.includes(t)) t = "overview";
-  if (t === "requests" && $("requestsTab").classList.contains("hidden")) t = "overview";
+  if ($(t + "Tab") && $(t + "Tab").classList.contains("hidden")) t = "overview";
   tab = t;
   try { localStorage.setItem("homeTab", t); } catch {}
   document.querySelectorAll("#subtabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
@@ -100,7 +100,7 @@ document.querySelectorAll("#subtabs button").forEach((b) => b.addEventListener("
 // Ctrl+Left / Ctrl+Right steps through the sub-tabs.
 document.addEventListener("keydown", (e) => {
   if (!e.ctrlKey || e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
-  const shown = TABS.filter((t) => t !== "requests" || !$("requestsTab").classList.contains("hidden"));
+  const shown = TABS.filter((t) => !$(t + "Tab") || !$(t + "Tab").classList.contains("hidden"));
   const i = shown.indexOf(tab);
   showTab(shown[(i + (e.key === "ArrowRight" ? 1 : -1) + shown.length) % shown.length]);
   e.preventDefault();
@@ -216,6 +216,71 @@ function renderCalendar(box, limit) {
   seeAll(box, "calendar", data.calendar.length, limit);
 }
 
+// ---- missing -------------------------------------------------------------------------------
+// One box per app: how many it's missing, "Search all missing…" (asks first), the newest ones.
+function missingButton(label, run, cls = "") {
+  const b = el("button", "qbtn" + cls, label);
+  b.type = "button";
+  b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await run(b);
+  });
+  return b;
+}
+async function runSearch(bar, note, appId, key, all) {
+  bar.querySelectorAll("button").forEach((x) => (x.disabled = true));
+  note.textContent = "…";
+  note.className = "qnote";
+  const r = await deck.searchMissing(appId, key, all);
+  bar.querySelectorAll("button").forEach((x) => (x.disabled = false));
+  if (!r) { note.textContent = ""; return; }
+  note.textContent = r.message;
+  note.className = "qnote " + (r.ok ? "ok" : "bad");
+}
+function searchAllBar(a) {
+  const bar = el("div", "qactions");
+  const note = el("span", "qnote");
+  bar.append(missingButton("Search all missing…", () => {
+    bar.textContent = "";
+    bar.classList.add("asking");
+    bar.append(el("span", "qask", `Search your indexers for all ${a.missing} missing in ${a.name}? It can take a while.`));
+    bar.append(missingButton("Search all", () => runSearch(bar, note, a.id, null, true), " go"));
+    bar.append(missingButton("Cancel", () => bar.replaceWith(searchAllBar(a))), note);
+  }), note);
+  return bar;
+}
+function renderMissing() {
+  const box = $("missing");
+  box.textContent = "";
+  const apps = data.apps.filter((a) => a.hasQueue && a.state === "ok");
+  if (!apps.length) { box.appendChild(el("div", "empty", "Needs the apps' API keys (Settings → Apps → Find my API keys).")); return; }
+  for (const a of apps) {
+    const sec = el("section", "box");
+    const h = el("h2", null, `${a.name} `);
+    h.appendChild(el("span", "count", a.missing ? `(${a.missing} missing)` : ""));
+    sec.appendChild(h);
+    const items = (data.wanted || []).filter((w) => w.app === a.id);
+    if (!a.missing) { sec.appendChild(el("div", "empty", "Nothing missing.")); box.appendChild(sec); continue; }
+    sec.appendChild(searchAllBar(a));
+    for (const w of items) {
+      const row = el("div", "item mitem");
+      const mid = el("div");
+      mid.style.minWidth = "0";
+      mid.append(el("div", "title", w.title), el("div", "sub", w.sub || ""));
+      const right = el("div", "right");
+      if (w.when) right.append(new Date(w.when).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }));
+      const bar = el("div", "qactions");
+      const note = el("span", "qnote");
+      bar.append(note, missingButton("Search", () => runSearch(bar, note, a.id, JSON.stringify(w.media || {}), false)));
+      row.append(mid, right, bar);
+      row.addEventListener("click", () => deck.open(a.id, w.link));
+      sec.appendChild(row);
+    }
+    if (a.missing > items.length) sec.appendChild(el("p", "note more", `Showing the newest ${items.length} of ${a.missing}. All of them are in ${a.name}: Wanted → Missing.`));
+    box.appendChild(sec);
+  }
+}
+
 // ---- health --------------------------------------------------------------------------------
 function renderHealth(box, limit) {
   box.textContent = "";
@@ -324,6 +389,9 @@ function render(d) {
   $("ov-requestsBox").classList.toggle("hidden", !hasSeerr);
   setCount("downloads", data.queue.length, data.queue.some((q) => q.error) ? "bad" : data.queue.some((q) => q.warn) ? "warn" : "");
   setCount("calendar", data.calendar.length);
+  const missing = data.apps.reduce((n, a) => n + (a.hasQueue && a.state === "ok" ? a.missing || 0 : 0), 0);
+  setCount("missing", missing);
+  $("missingTab").classList.toggle("hidden", !data.apps.some((a) => a.hasQueue));
   setCount("health", data.health.length, data.health.some((h) => h.type === "error") ? "bad" : data.health.length ? "warn" : "");
   setCount("requests", requests.length, requests.length ? "gold" : "");
   renderApps();
@@ -334,6 +402,7 @@ function render(d) {
   renderQueue($("downloads"), Infinity);
   renderCalendar($("calendar"), Infinity);
   renderHealth($("health"), Infinity);
+  renderMissing();
   renderRequests($("requests"), requests, Infinity, true, "Nothing waiting for approval.");
   renderRequests($("recentRequests"), data.recentRequests || [], Infinity, false, "No requests yet.");
   if (tab === "requests" && !hasSeerr) showTab("overview");

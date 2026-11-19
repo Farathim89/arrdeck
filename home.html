@@ -20,6 +20,7 @@
         <button type="button" data-tab="overview">Overview</button>
         <button type="button" data-tab="downloads">Downloads <span class="n" data-n="downloads"></span></button>
         <button type="button" data-tab="calendar">Coming up <span class="n" data-n="calendar"></span></button>
+        <button type="button" data-tab="missing" id="missingTab">Missing <span class="n" data-n="missing"></span></button>
         <button type="button" data-tab="health">Health <span class="n" data-n="health"></span></button>
         <button type="button" data-tab="requests" id="requestsTab">Requests <span class="n" data-n="requests"></span></button>
         <button type="button" data-tab="alerts">Alerts <span class="n" data-n="alerts"></span></button>
@@ -55,6 +56,10 @@
       </section>
       <section class="pane" id="p-calendar">
         <section class="box"><h2>Coming up <span class="count" data-count="calendar"></span></h2><div id="calendar"></div></section>
+      </section>
+      <section class="pane" id="p-missing">
+        <p class="note">Monitored but not downloaded yet, newest first (each app's Wanted → Missing). <b>Search</b> looks for one; <b>Search all missing</b> has the app look for everything it's missing — that can keep your indexers busy for a while.</p>
+        <div id="missing"></div>
       </section>
       <section class="pane" id="p-health">
         <section class="box"><h2>Health <span class="count" data-count="health"></span></h2><div id="health"></div></section>

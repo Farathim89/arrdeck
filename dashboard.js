@@ -70,6 +70,70 @@ function queueItem(app, r) {
   };
 }
 
+// The app's search command for one episode / movie / album / book.
+function searchBody(m) {
+  m = m || {};
+  return m.episodeId ? { name: "EpisodeSearch", episodeIds: [m.episodeId] }
+    : m.movieId ? { name: "MoviesSearch", movieIds: [m.movieId] }
+    : m.albumId ? { name: "AlbumSearch", albumIds: [m.albumId] }
+    : m.bookId ? { name: "BookSearch", bookIds: [m.bookId] } : null;
+}
+
+// ---- missing (the apps' "Wanted → Missing") ------------------------------------------------
+// Monitored but not downloaded yet, newest first. `all` = the app's own "search all missing".
+const WANTED = {
+  series: { inc: "&includeSeries=true", sort: "airDateUtc", all: "MissingEpisodeSearch" },
+  movie: { inc: "", sort: "", all: "MissingMoviesSearch" },
+  album: { inc: "&includeArtist=true", sort: "releaseDate", all: "MissingAlbumSearch" },
+  book: { inc: "&includeAuthor=true", sort: "releaseDate", all: "MissingBookSearch" },
+};
+const MISSING_PAGE = 50;
+function wantedItem(app, r) {
+  const ep = (s, e) => `S${String(s).padStart(2, "0")}E${String(e).padStart(2, "0")}`;
+  if (app.media === "series") {
+    return { app: app.id, title: (r.series && r.series.title) || "?", sub: `${ep(r.seasonNumber, r.episodeNumber)} · ${r.title || ""}`,
+      when: r.airDateUtc || "", media: { episodeId: r.id }, link: r.series && r.series.titleSlug ? `/series/${r.series.titleSlug}` : "/wanted/missing" };
+  }
+  if (app.media === "movie") {
+    return { app: app.id, title: r.title + (r.year ? ` (${r.year})` : ""), sub: r.studio || "",
+      when: r.digitalRelease || r.physicalRelease || r.inCinemas || "", media: { movieId: r.id }, link: r.titleSlug ? `/movie/${r.titleSlug}` : "/wanted/missing" };
+  }
+  if (app.media === "album") {
+    return { app: app.id, title: (r.artist && r.artist.artistName) || "?", sub: r.title || "", when: r.releaseDate || "",
+      media: { albumId: r.id }, link: r.artist && r.artist.foreignArtistId ? `/artist/${r.artist.foreignArtistId}` : "/wanted/missing" };
+  }
+  return { app: app.id, title: (r.author && r.author.authorName) || "?", sub: r.title || "", when: r.releaseDate || "",
+    media: { bookId: r.id }, link: "/wanted/missing" };
+}
+async function fetchWanted(app, key) {
+  const w = WANTED[app.media];
+  if (!w) return { total: 0, items: [] };
+  const base = `/wanted/missing?page=1&pageSize=${MISSING_PAGE}&monitored=true${w.inc}`;
+  let r = null;
+  try {
+    r = await get(app, key, base + (w.sort ? `&sortKey=${w.sort}&sortDirection=descending` : ""));
+  } catch (err) {
+    if (err.code === "key") throw err;
+    r = await get(app, key, base).catch(() => null);   // an older app that doesn't know that sort
+  }
+  if (!r) return { total: 0, items: [] };
+  const items = records(r).map((x) => wantedItem(app, x));
+  if (!w.sort) items.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+  return { total: Number(r.totalRecords) || items.length, items };
+}
+// Search one missing item, or (item = null) everything the app has missing.
+async function searchMissing(app, key, item) {
+  if (!key) throw new Error(`no API key for ${app.name}`);
+  if (!item) {
+    const w = WANTED[app.media];
+    if (!w) throw new Error("nothing to search for");
+    return send(app, key, "POST", "/command", { name: w.all });
+  }
+  const body = searchBody(item.media);
+  if (!body) throw new Error("nothing to search for");
+  return send(app, key, "POST", "/command", body);
+}
+
 // ---- Seerr requests ----------------------------------------------------------------------
 // Seerr's request list has TMDB ids, not titles: look each one up once and remember it.
 const titleCache = new Map();
@@ -123,11 +187,7 @@ async function queueAction(app, key, item, action) {
   if (action === "blocklist") return send(app, key, "DELETE", `/queue/${id}?removeFromClient=true&blocklist=true&skipRedownload=false`);
   if (action === "grab") return send(app, key, "POST", `/queue/grab/${id}`);
   if (action === "search") {
-    const m = item.media || {};
-    const body = m.episodeId ? { name: "EpisodeSearch", episodeIds: [m.episodeId] }
-      : m.movieId ? { name: "MoviesSearch", movieIds: [m.movieId] }
-      : m.albumId ? { name: "AlbumSearch", albumIds: [m.albumId] }
-      : m.bookId ? { name: "BookSearch", bookIds: [m.bookId] } : null;
+    const body = searchBody(item.media);
     if (!body) throw new Error("nothing to search for");
     return send(app, key, "POST", "/command", body);
   }
@@ -174,7 +234,7 @@ function calendarItems(app, list, start, end) {
 
 // One app's part of the dashboard. Never throws: problems end up in `state`.
 async function fetchApp(app, key, days) {
-  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], badges: null };
+  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], wanted: [], missing: 0, badges: null };
   res.up = await isUp(app);
   if (!res.up) { res.state = "down"; return res; }
   if (app.kind === "web") { res.state = "ok"; return res; }   // a plain web page: no API
@@ -197,6 +257,7 @@ async function fetchApp(app, key, days) {
         jobs.push(get(app, key, `/calendar?start=${iso(start)}&end=${iso(end)}&unmonitored=false${calInc}`).then((c) => {
           res.calendar = calendarItems(app, Array.isArray(c) ? c : [], start, end);
         }));
+        jobs.push(fetchWanted(app, key).then((w) => { res.wanted = w.items; res.missing = w.total; }).catch(() => {}));
       }
       await Promise.all(jobs);
     } else if (app.kind === "seerr") {
@@ -232,6 +293,7 @@ async function fetchDashboard(apps, keyFor, days) {
     at: Date.now(),
     apps: parts,
     queue: parts.flatMap((p) => p.queue),
+    wanted: parts.flatMap((p) => p.wanted),
     requests: parts.flatMap((p) => p.pending),
     recentRequests: parts.flatMap((p) => p.recent),
     calendar: parts.flatMap((p) => p.calendar).sort(byTime),
@@ -239,4 +301,4 @@ async function fetchDashboard(apps, keyFor, days) {
   };
 }
 
-module.exports = { fetchDashboard, isUp, queueAction, requestAction };
+module.exports = { fetchDashboard, isUp, queueAction, requestAction, searchMissing };

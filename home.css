@@ -98,3 +98,6 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: va
 .rstate.ok { color: var(--ok); }
 .rstate.warn { color: var(--warn); }
 .rstate.bad { color: var(--bad); }
+.note.more { margin: 10px 0 0; font-size: 12px; }
+.mitem { grid-template-columns: 1fr auto auto; }
+.mitem .qactions { grid-column: auto; margin: 0; justify-content: flex-end; }

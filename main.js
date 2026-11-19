@@ -16,7 +16,7 @@ const {
 const path = require("path");
 const fs = require("fs");
 const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
-const { fetchDashboard, isUp, queueAction, requestAction } = require("./dashboard");
+const { fetchDashboard, isUp, queueAction, requestAction, searchMissing } = require("./dashboard");
 const createUpdater = require("./update");
 const { findKeys } = require("./keyfinder");
 
@@ -920,6 +920,22 @@ ipcMain.handle("home:queue-action", async (e, { app: appId, qid, action } = {}) 
     if (action !== "search") setTimeout(() => refreshDashboard(true), 1500);   // the queue changed
     const done = { remove: "Removed.", blocklist: "Removed - looking for another release.", search: "Searching…", grab: "Sent to the download client." };
     return { ok: true, message: done[action] };
+  } catch (err) {
+    return { ok: false, message: `Didn't work: ${err.message}` };
+  }
+});
+// Missing on Home: search one item, or everything an app has missing.
+ipcMain.handle("home:missing-search", async (e, { app: appId, key: itemKey, all } = {}) => {
+  if (!ownPage(e) || !dash) return null;
+  const a = appById(String(appId));
+  if (!a) return null;
+  const mk = (m) => JSON.stringify(m || {});
+  const item = all ? null : (dash.wanted || []).find((w) => w.app === appId && mk(w.media) === itemKey);
+  if (!all && !item) return { ok: false, message: "It's not missing any more." };
+  try {
+    await searchMissing(a, getKey(a.id), item);
+    const p = dash.apps.find((x) => x.id === a.id);
+    return { ok: true, message: all ? `${a.name} is searching for all ${p && p.missing ? p.missing + " " : ""}missing.` : "Searching…" };
   } catch (err) {
     return { ok: false, message: `Didn't work: ${err.message}` };
   }

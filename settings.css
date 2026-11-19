@@ -82,3 +82,16 @@ select option { background: #000; }
 .updateRow .note { margin: 0; }
 .primary:disabled { opacity: .5; cursor: default; }
 a { color: var(--gold); }
+
+/* API key finder, tab order / names */
+.findRow { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.keyDir { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 4px 0; }
+.secondary.small { padding: 1px 8px; font-size: 12px; }
+.report, #findReport { margin: 6px 0 4px; }
+.reportRow { display: grid; grid-template-columns: 120px 130px 1fr; gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--soft); font-size: 13px; }
+.reportRow small { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reportRow .ok { color: var(--ok); font-weight: 600; }
+.reportRow .dim { color: var(--dim); }
+.arrow { background: #000; border: 1px solid var(--soft); width: 28px; height: 26px; padding: 0; font-size: 11px; cursor: pointer; }
+.arrow:hover { border-color: var(--gold); color: var(--gold); }
+.fields { grid-template-columns: 0.8fr 1fr 1fr; }

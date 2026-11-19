@@ -76,3 +76,13 @@ button:disabled { opacity: .35; cursor: default; background: none; }
 .badge.error { background: var(--bad); color: #fff; }
 
 body.blurred .logo, body.blurred .brand, body.blurred button { opacity: .6; }
+
+/* The thin border round the window (the apps sit 1px inside it). Grey when the window isn't
+   focused; none when maximised or full screen. */
+body.framed::before { content: ""; position: fixed; inset: 0; border: 1px solid var(--line); pointer-events: none; z-index: 5; }
+body.framed.blurred::before { border-color: #777777; }
+
+/* Dragging a tab to a new place */
+.tab.dragging { opacity: .4; }
+.tab.dropBefore { box-shadow: inset 3px 0 0 var(--gold); }
+.tab.dropAfter { box-shadow: inset -3px 0 0 var(--gold); }

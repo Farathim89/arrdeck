@@ -11,12 +11,14 @@
 
 const {
   app, BrowserWindow, WebContentsView, ipcMain, shell, session, nativeTheme, safeStorage, screen,
+  Tray, Menu, Notification, dialog,
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
 const { fetchDashboard, isUp } = require("./dashboard");
 const createUpdater = require("./update");
+const { findKeys } = require("./keyfinder");
 
 // ---- data folder -----------------------------------------------------------
 // Fully portable: settings and sign-ins live in "ArrDeck-data" next to ArrDeck.exe
@@ -42,6 +44,13 @@ const DEFAULTS = {
   refreshSecs: 60,
   updateCheck: true,     // look for a new ArrDeck on GitHub now and then
   custom: [],            // apps you added: { id, name, url, type }
+  order: [],             // your tab order (app ids)
+  minimizeToTray: true,  // minimise = into the tray (keeps watching downloads)
+  closeToTray: false,    // ✕ = into the tray instead of quitting
+  startWithWindows: false,
+  notifyDownloads: true, // "Downloaded: …" when something leaves the queue finished
+  notifyHealth: true,    // new health warnings / errors, an app that stops answering
+  keyDirs: [],           // extra folders to look for API keys in
   lastTab: "home",
   window: null,
 };
@@ -70,6 +79,9 @@ app.commandLine.appendSwitch("disable-blink-features", "ForcedColors");
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 app.setAppUserModelId("com.farathim.arrdeck");
+// Started by Windows at sign-in ("Start with Windows"): straight to the tray.
+const startHidden = process.argv.includes("--hidden");
+let isQuitting = false;
 
 const ICON = path.join(__dirname, "build", "icon.ico");
 const PRELOAD = path.join(__dirname, "preload.js");
@@ -84,10 +96,37 @@ function appList() {
     id: c.id, name: c.name, url: c.url, kind: TYPES[c.type].kind, media: TYPES[c.type].media,
     on: true, color: CUSTOM_COLORS[i % CUSTOM_COLORS.length], custom: true, type: c.type,
   }));
-  return APPS.concat(custom).map((a) => {
+  const list = APPS.concat(custom).map((a) => {
     const c = config.apps[a.id] || {};
-    return { ...a, on: c.on ?? a.on, url: (c.url || a.url).replace(/\/+$/, ""), path: c.path || "" };
+    return {
+      ...a, on: c.on ?? a.on, url: (c.url || a.url).replace(/\/+$/, ""), path: c.path || "",
+      name: (c.name || "").trim() || a.name, defaultName: a.name,
+    };
   });
+  // Your order (Settings > Apps arrows, or drag a tab); apps not in it keep their place after.
+  const order = config.order || [];
+  const rank = (a) => { const i = order.indexOf(a.id); return i < 0 ? order.length + list.indexOf(a) : i; };
+  return list.sort((a, b) => rank(a) - rank(b));
+}
+// Move a tab: before another one (dragging), or one place up / down (the arrows).
+function moveApp(id, { before, dir } = {}) {
+  const ids = appList().map((a) => a.id);
+  const from = ids.indexOf(id);
+  if (from < 0) return;
+  ids.splice(from, 1);
+  let to = from;
+  if (dir) {
+    // Skip the switched-off apps, so one click moves one tab.
+    const all = appList();
+    const on = (x) => (all.find((a) => a.id === x) || {}).on;
+    to = from + (dir < 0 ? -1 : 0);
+    if (dir < 0) { while (to > 0 && !on(ids[to])) to--; } else { while (to < ids.length && !on(ids[to])) to++; to++; }
+    to = Math.max(0, Math.min(ids.length, to));
+  } else if (before === null) to = ids.length;
+  else if (ids.includes(before)) to = ids.indexOf(before);
+  ids.splice(to, 0, id);
+  config.order = ids;
+  saveConfig();
 }
 function cleanUrl(u) {
   u = String(u || "").trim().replace(/\/+$/, "");
@@ -152,11 +191,15 @@ const status = {};         // id -> "up" | "down" | "warn" | "error" | ""
 
 const wc = (id = active) => (views.get(id) ? views.get(id).view.webContents : null);
 
+// A thin border round the window (drawn by the title-bar page behind the views),
+// none when maximised or full screen.
+const framed = () => !!win && !win.isMaximized() && !win.isFullScreen();
 function layout() {
   if (!win) return;
   const { width, height } = win.getContentBounds();
   const top = win.isFullScreen() ? 0 : TITLE_H;
-  const b = { x: 0, y: top, width, height: Math.max(0, height - top) };
+  const edge = framed() ? 1 : 0;
+  const b = { x: edge, y: top, width: Math.max(0, width - 2 * edge), height: Math.max(0, height - top - edge) };
   for (const v of views.values()) v.view.setBounds(b);
   if (settingsView) settingsView.setBounds(b);
 }
@@ -321,6 +364,7 @@ function syncViews() {
   if (settingsView) win.contentView.addChildView(settingsView);   // keep on top
   layout();
   sendState();
+  updateTrayMenu();
 }
 
 function select(id) {
@@ -347,6 +391,7 @@ function sendState() {
     canBack: !!(c && c.navigationHistory.canGoBack()),
     canForward: !!(c && c.navigationHistory.canGoForward()),
     settingsOpen: !!settingsView,
+    framed: framed(),
     version: app.getVersion(),
     update: updater ? updater.info().pill : null,
   });
@@ -436,16 +481,27 @@ function createWindow() {
     titleBarOverlay: { color: BG, symbolColor: "#ffffff", height: TITLE_H - 1 },
     webPreferences: OWN,
   });
-  if (st.maximized) win.maximize();
+  // (Maximising a hidden window shows it: started in the tray, maximise on first show instead.)
+  if (st.maximized && !startHidden) win.maximize();
+  else if (st.maximized) win.once("show", () => win.maximize());
   win.webContents.on("will-navigate", (e) => e.preventDefault());
   ignoreWindowsTheme(win.webContents);
   win.webContents.on("before-input-event", onShortcut);
   win.loadFile(path.join(__dirname, "titlebar.html"));
-  win.once("ready-to-show", () => win.show());
-  win.on("close", saveWindowState);
+  win.once("ready-to-show", () => { if (!startHidden || !tray) win.show(); });
+  // ✕ quits, or goes to the tray (Settings > Window & alerts). Minimise can go to the tray too.
+  win.on("close", (e) => {
+    saveWindowState();
+    if (!isQuitting && config.closeToTray && tray) { e.preventDefault(); win.hide(); trayHint(); }
+  });
+  win.on("minimize", () => {
+    if (isQuitting || !config.minimizeToTray || !tray) return;
+    win.hide();
+    trayHint();
+  });
   win.on("focus", () => { win.webContents.send("focus", true); if (!settingsView && wc()) wc().focus(); });
   win.on("blur", () => win.webContents.send("focus", false));
-  for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) win.on(ev, layout);
+  for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) win.on(ev, () => { layout(); sendState(); });
   win.on("app-command", (_e, cmd) => {
     if (cmd === "browser-backward") navAction("back");
     if (cmd === "browser-forward") navAction("forward");
@@ -484,7 +540,9 @@ async function refreshDashboard(force = false) {
   if (!force && dash && Date.now() - dash.at < 15000) return;
   dashBusy = true;
   try {
+    const prev = dash;
     dash = await fetchDashboard(enabledApps(), getKey, config.homeDays);
+    notifyChanges(prev, dash);
     for (const p of dash.apps) {
       const e = views.get(p.id);
       if (!p.up) status[p.id] = "down";
@@ -509,13 +567,108 @@ function startDashboard() {
   dashTimer = setInterval(() => refreshDashboard(true), Math.max(15, config.refreshSecs) * 1000);
 }
 
+// ---- notifications -----------------------------------------------------------------
+// Compares two dashboard reads: a download that left the queue nearly done (= imported),
+// a new health warning / error, an app that stopped answering. The first read only learns.
+const appName = (id) => (appById(id) || { name: id }).name;
+function notify(title, body, tabId) {
+  if (Notification.isSupported()) {
+    const n = new Notification({ title, body, icon: ICON, silent: false });
+    n.on("click", () => { showWindow(); if (tabId) select(tabId); });
+    n.show();
+  } else if (tray) {
+    tray.displayBalloon({ iconType: "info", title, content: body });
+  }
+}
+function notifyChanges(prev, next) {
+  if (!prev || !next) return;
+  const qKey = (q) => `${q.app}|${q.title}|${q.sub}`;
+  if (config.notifyDownloads) {
+    const now = new Set(next.queue.map(qKey));
+    // Only apps that answered both times (a down app's queue looks empty).
+    const okNow = new Set(next.apps.filter((p) => p.state === "ok").map((p) => p.id));
+    const done = prev.queue.filter((q) => !now.has(qKey(q)) && okNow.has(q.app) && !q.error
+      && (q.progress >= 90 || /import/i.test(q.status)));
+    if (done.length === 1) notify(`Downloaded: ${done[0].title}`, [done[0].sub, appName(done[0].app)].filter(Boolean).join(" · "), done[0].app);
+    else if (done.length > 1) notify(`${done.length} downloads finished`, done.slice(0, 4).map((q) => q.title + (q.sub ? ` (${q.sub.split(" · ")[0]})` : "")).join("\n"), "home");
+  }
+  if (config.notifyHealth) {
+    const hKey = (h) => `${h.app}|${h.type}|${h.message}`;
+    const seen = new Set(prev.health.map(hKey));
+    const fresh = next.health.filter((h) => (h.type === "error" || h.type === "warning") && !seen.has(hKey(h)));
+    for (const h of fresh.slice(0, 3)) notify(`${appName(h.app)}: ${h.type === "error" ? "error" : "warning"}`, h.message, h.app);
+    for (const p of next.apps) {
+      const before = prev.apps.find((x) => x.id === p.id);
+      if (before && before.up && !p.up) notify(`${p.name} isn't answering`, `Nothing replies at ${(appById(p.id) || {}).url || ""}. Is it still running?`, p.id);
+      if (before && !before.up && p.up) notify(`${p.name} is back`, "It's answering again.", p.id);
+    }
+  }
+}
+
+// ---- tray & start with Windows ---------------------------------------------------------
+let tray = null;
+function showWindow() {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+function quitApp() {
+  isQuitting = true;
+  app.quit();
+}
+function trayHint() {
+  if (config.trayHintShown || !tray) return;
+  config.trayHintShown = true;
+  saveConfig();
+  tray.displayBalloon({ iconType: "info", title: "ArrDeck is still running", content: "It's in the tray and keeps an eye on your downloads. Right-click the icon for your apps or Quit." });
+}
+function updateTrayMenu() {
+  if (!tray) return;
+  const tabs = [{ id: "home", name: "Home" }, ...enabledApps()];
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Show ArrDeck", click: showWindow },
+    { type: "separator" },
+    ...tabs.map((t) => ({ label: t.name, click: () => { showWindow(); select(t.id); } })),
+    { type: "separator" },
+    { label: "Settings", click: () => { showWindow(); openSettings(); } },
+    { label: "Check for updates", click: () => { if (updater) updater.check(true); } },
+    { type: "separator" },
+    { label: "Quit ArrDeck", click: quitApp },
+  ]));
+}
+function createTray() {
+  tray = new Tray(ICON);
+  tray.setToolTip("ArrDeck");
+  tray.on("click", () => (win && win.isVisible() && !win.isMinimized() && win.isFocused() ? win.hide() : showWindow()));
+  updateTrayMenu();
+}
+// Windows starts ArrDeck at sign-in, in the tray. The portable .exe registers its own path.
+const loginExe = () => process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+function applyStartWithWindows() {
+  if (!app.isPackaged) return;   // "electron ." while developing: don't register electron.exe
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!config.startWithWindows, path: loginExe(), args: ["--hidden"] });
+  } catch (err) { console.error("login item", err); }
+}
+const startsWithWindows = () => {
+  if (!app.isPackaged) return !!config.startWithWindows;
+  try { return app.getLoginItemSettings({ path: loginExe(), args: ["--hidden"] }).openAtLogin; } catch { return false; }
+};
+
 // ---- settings overlay ------------------------------------------------------------
 function publicSettings() {
   return {
     apps: appList().map((a) => ({
-      id: a.id, name: a.name, url: a.url, on: a.on, kind: a.kind, color: a.color, hasKey: !!config.keys[a.id],
-      custom: !!a.custom, type: a.type || "",
+      id: a.id, name: a.name, defaultName: a.defaultName, url: a.url, on: a.on, kind: a.kind, color: a.color,
+      hasKey: !!config.keys[a.id], custom: !!a.custom, type: a.type || "",
     })),
+    minimizeToTray: config.minimizeToTray,
+    closeToTray: config.closeToTray,
+    startWithWindows: startsWithWindows(),
+    notifyDownloads: config.notifyDownloads,
+    notifyHealth: config.notifyHealth,
+    keyDirs: config.keyDirs || [],
     types: Object.entries(TYPES).map(([id, t]) => ({ id, label: t.label })),
     updateCheck: config.updateCheck !== false,
     update: updater ? updater.info() : null,
@@ -571,8 +724,11 @@ ipcMain.handle("settings:set", (e, { key, value } = {}) => {
   } else if (key === "homeDays") {
     config.homeDays = Math.max(1, Math.min(31, Number(value) || 7));
     refreshDashboard(true);
-  } else if (key === "updateCheck") {
-    config.updateCheck = !!value;
+  } else if (["updateCheck", "minimizeToTray", "closeToTray", "notifyDownloads", "notifyHealth"].includes(key)) {
+    config[key] = !!value;
+  } else if (key === "startWithWindows") {
+    config.startWithWindows = !!value;
+    applyStartWithWindows();
   } else if (key === "refreshSecs") {
     config.refreshSecs = Math.max(15, Math.min(3600, Number(value) || 60));
     startDashboard();
@@ -589,9 +745,50 @@ ipcMain.handle("settings:app", (e, { id, patch } = {}) => {
     if (!u) return { error: "That address doesn't look right." };
     if (u !== appById(id).url) { p.url = u; p.path = ""; }
   }
+  if (patch && typeof patch.name === "string") {
+    // Rename the tab (empty = its own name back). Your own tabs keep it in their entry too.
+    const name = patch.name.trim().slice(0, 40);
+    const own = (config.custom || []).find((c) => c.id === id);
+    if (own) { if (name) own.name = name; } else p.name = name;
+  }
   setAppConfig(id, p);
   syncViews();
   refreshDashboard(true);
+  return publicSettings();
+});
+// Tab order: the arrows in Settings (dir -1 / 1) or dragging a tab (before = the tab it lands on).
+ipcMain.handle("settings:move", (e, { id, dir, before } = {}) => {
+  if (!ownPage(e) || !appById(id)) return null;
+  moveApp(id, dir ? { dir: dir < 0 ? -1 : 1 } : { before: before ?? null });
+  syncViews();
+  pushSettings();
+  return publicSettings();
+});
+// Read the API keys from the apps' own settings files on this PC.
+ipcMain.handle("settings:find-keys", async (e) => {
+  if (!ownPage(e)) return null;
+  const apps = appList().filter((a) => a.kind !== "web");
+  const { results, searched, files } = findKeys(apps, { exeHome, extraDirs: config.keyDirs || [] });
+  const report = [];
+  for (const a of apps) {
+    const r = results.find((x) => x.id === a.id);
+    if (!r) { report.push({ id: a.id, name: a.name, status: "notfound" }); continue; }
+    const same = getKey(a.id) === r.key;
+    if (!same) setKey(a.id, r.key);
+    report.push({ id: a.id, name: a.name, status: same ? "same" : "saved", file: r.file });
+  }
+  if (report.some((r) => r.status === "saved")) refreshDashboard(true);
+  return { report, searched, files, settings: publicSettings() };
+});
+ipcMain.handle("settings:key-dir", async (e, remove) => {
+  if (!ownPage(e)) return null;
+  if (typeof remove === "string") config.keyDirs = (config.keyDirs || []).filter((d) => d !== remove);
+  else {
+    const r = await dialog.showOpenDialog(win, { title: "Where are your apps' settings?", properties: ["openDirectory"] });
+    if (r.canceled || !r.filePaths[0]) return publicSettings();
+    config.keyDirs = [...new Set([...(config.keyDirs || []), r.filePaths[0]])];
+  }
+  saveConfig();
   return publicSettings();
 });
 // Your own tabs: another Sonarr / Radarr / … or any local web page.
@@ -659,22 +856,18 @@ ipcMain.on("update:check", (e) => { if (ownPage(e) && updater) updater.check(tru
 ipcMain.on("open-external", (e, url) => { if (ownPage(e)) openExternal(String(url)); });
 
 // ---- start -------------------------------------------------------------------
-app.on("second-instance", () => {
-  if (!win) return;
-  if (win.isMinimized()) win.restore();
-  win.show();
-  win.focus();
-});
+app.on("second-instance", () => showWindow());
 let updater = null;
 app.whenReady().then(() => {
   nativeTheme.themeSource = "dark";
   updater = createUpdater({
-    getWin: () => win, dataDir: DATA, getConfig: () => config, saveConfig, icon: ICON, openExternal,
+    getWin: () => win, dataDir: DATA, getConfig: () => config, saveConfig, icon: ICON, openExternal, showWindow,
     onChange: () => { sendState(); pushSettings(); },
-    showWindow: () => { if (!win) return; if (win.isMinimized()) win.restore(); win.show(); win.focus(); },
   });
+  createTray();
   createWindow();
+  applyStartWithWindows();   // keeps the sign-in entry pointing at this .exe, wherever it is now
   updater.start();
 });
-app.on("before-quit", () => { saveWindowState(); });
+app.on("before-quit", () => { isQuitting = true; saveWindowState(); });
 app.on("window-all-closed", () => app.quit());

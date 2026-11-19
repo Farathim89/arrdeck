@@ -19,12 +19,21 @@
           <button type="button" data-pane="apps" class="active">Apps</button>
           <button type="button" data-pane="look">Look</button>
           <button type="button" data-pane="home">Home dashboard</button>
+          <button type="button" data-pane="window">Window &amp; alerts</button>
           <button type="button" data-pane="about">About</button>
         </nav>
         <div class="panes">
           <div class="pane active" id="apps">
+            <h2>API keys</h2>
+            <p class="note">The Home dashboard needs each app's API key. ArrDeck can read them from the apps' own settings files on this PC (<b>config.xml</b>, Seerr's <b>settings.json</b>, Bazarr's <b>config.yaml</b>): it looks in C:\ProgramData, around ArrDeck's folder (a Docker <b>appdata</b> folder next to it, say) and in the folders below.</p>
+            <div class="findRow">
+              <button type="button" class="primary" id="findKeys">Find my API keys</button>
+              <button type="button" class="secondary" id="addKeyDir">Also look in a folder…</button>
+            </div>
+            <div id="keyDirs"></div>
+            <div id="findReport"></div>
             <h2>Your apps</h2>
-            <p class="note">Switch an app on to give it a tab. Each app keeps its own sign-in: you sign in once in its tab and ArrDeck remembers it.</p>
+            <p class="note">Switch an app on to give it a tab. Each app keeps its own sign-in: you sign in once in its tab and ArrDeck remembers it. <b>▲ ▼</b> or dragging a tab in the title bar sets the order; <b>Tab name</b> renames it.</p>
             <div id="appList"></div>
             <h2>Add an app</h2>
             <p class="note">Another Sonarr / Radarr / … (say, one for anime or 4K) gets the Home dashboard and the High contrast look too. <b>Other web page</b> adds any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab.</p>
@@ -52,6 +61,17 @@
               <select data-key="homeDays"><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
             <label class="row"><span>Refresh every</span>
               <select data-key="refreshSecs"><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="900">15 minutes</option></select></label>
+          </div>
+
+          <div class="pane" id="window">
+            <h2>Tray</h2>
+            <label class="row"><span>Minimise to the tray<small>no taskbar button; ArrDeck keeps watching your downloads</small></span><input type="checkbox" data-key="minimizeToTray" /></label>
+            <label class="row"><span>✕ closes to the tray<small>off = ✕ quits ArrDeck (Quit is always in the tray menu)</small></span><input type="checkbox" data-key="closeToTray" /></label>
+            <label class="row"><span>Start with Windows<small>in the tray, when you sign in to Windows</small></span><input type="checkbox" data-key="startWithWindows" /></label>
+            <h2>Alerts</h2>
+            <label class="row"><span>When a download is done<small>"Downloaded: …" when an episode, movie or album leaves the queue finished</small></span><input type="checkbox" data-key="notifyDownloads" /></label>
+            <label class="row"><span>When something's wrong<small>a new health warning or error, or an app that stops answering (and comes back)</small></span><input type="checkbox" data-key="notifyHealth" /></label>
+            <p class="note">Alerts come from the Home dashboard's checks (Home dashboard → Refresh every), so they need the apps' API keys too.</p>
           </div>
 
           <div class="pane" id="about">
@@ -83,9 +103,12 @@
         <div class="appHead">
           <i class="swatch"></i><b class="appName"></b><span class="kindNote"></span>
           <span class="state"></span>
+          <button type="button" class="arrow up" title="Move this tab left">▲</button>
+          <button type="button" class="arrow down" title="Move this tab right">▼</button>
           <input type="checkbox" class="on" title="Show this app" />
         </div>
         <div class="fields">
+          <label>Tab name <input type="text" class="tabName" spellcheck="false" maxlength="40" /></label>
           <label>Address <input type="text" class="url" spellcheck="false" /></label>
           <label class="keyField">API key <input type="password" class="key" spellcheck="false" autocomplete="off" /></label>
           <div class="btns">

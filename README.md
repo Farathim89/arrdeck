@@ -11,7 +11,9 @@
 - **Home dashboard.** The download queue with progress and import problems, what's coming up in the next days (episodes, movies, albums), health warnings and Seerr's requests — from every app at once. Click anything to jump to it in its app.
 - **High contrast look, built in.** Black, white and gold inside Sonarr, Radarr, Lidarr, Prowlarr, Readarr, Seerr, Jellyseerr and Bazarr — no browser extension needed. Can be switched off.
 - **Ignores the Windows theme.** A Windows contrast theme or light mode doesn't wash out the apps: ArrDeck always shows its own colours.
-- **Your own tabs.** Add a second Sonarr / Radarr (anime, 4K…) with the dashboard and the look, or any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab.
+- **Finds your API keys.** *Find my API keys* reads them from the apps' own settings files on this PC (`config.xml`, Seerr's `settings.json`, Bazarr's `config.yaml` — Windows installs or a Docker `appdata` folder) and matches them to your tabs by app and port. No copy-pasting.
+- **Tray and alerts.** Minimise (or ✕) to the tray, start with Windows, and get a Windows notification when a download is done, a new health warning or error shows up, or an app stops answering.
+- **Your own tabs, your order.** Add a second Sonarr / Radarr (anime, 4K…) with the dashboard and the look, or any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab. Drag tabs to reorder them, rename any tab.
 - **Fully portable.** One `ArrDeck.exe`; settings and sign-ins live in `ArrDeck-data` next to it. Nothing in AppData, no installer.
 - **Updates itself.** When a new version is out, the title bar shows *Update x.y.z*: one click downloads it, checks its SHA-256 and swaps the .exe. Nothing installs without a click.
 
@@ -25,7 +27,7 @@ Get `ArrDeck.exe` from the [latest release](https://github.com/Farathim89/arrdec
 
 1. ArrDeck expects the apps on this PC at their usual ports (`127.0.0.1:8989`, `7878`, `8686`, `9696`, `5055`). Different address? **Settings (gear, top right) → Apps**.
 2. Sign in to each app in its tab, as you would in a browser.
-3. For the Home dashboard, paste each app's **API key** in *Settings → Apps* (*Where's the key?* opens the right page: Settings → General in each app). Keys are stored encrypted with Windows' own data protection, only on this PC.
+3. For the Home dashboard and alerts, click **Find my API keys** in *Settings → Apps* (add the folder your apps keep their settings in with *Also look in a folder…* if they're somewhere else) — or paste a key by hand (*Where's the key?* opens the right page in each app). Keys are stored encrypted with Windows' own data protection, only on this PC.
 
 ## Keys
 

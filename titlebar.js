@@ -16,6 +16,7 @@ function render(s) {
   backBtn.disabled = !s.canBack;
   fwdBtn.disabled = !s.canForward;
   gearBtn.classList.toggle("on", !!s.settingsOpen);
+  document.body.classList.toggle("framed", !!s.framed);
   verEl.textContent = s.version ? "v" + s.version : "";
   updateBtn.classList.toggle("hidden", !s.update);
   if (s.update) { updateBtn.textContent = s.update.label; updateBtn.title = s.update.tip || ""; }
@@ -49,9 +50,36 @@ function render(s) {
       b.appendChild(badge);
     }
     b.addEventListener("click", () => deck.select(t.id));
+    // Drag an app's tab onto another to put it there (Home stays first).
+    if (t.id !== "home") {
+      b.draggable = true;
+      b.dataset.id = t.id;
+      b.addEventListener("dragstart", (e) => { dragId = t.id; e.dataTransfer.effectAllowed = "move"; b.classList.add("dragging"); });
+      b.addEventListener("dragend", () => { dragId = null; b.classList.remove("dragging"); clearDrop(); });
+    }
+    b.addEventListener("dragover", (e) => {
+      if (!dragId || t.id === dragId) return;
+      e.preventDefault();
+      clearDrop();
+      const r = b.getBoundingClientRect();
+      b.classList.add(t.id === "home" || e.clientX < r.left + r.width / 2 ? "dropBefore" : "dropAfter");
+    });
+    b.addEventListener("drop", (e) => {
+      if (!dragId || t.id === dragId) return;
+      e.preventDefault();
+      const after = b.classList.contains("dropAfter");
+      clearDrop();
+      // "before" = the tab it should end up in front of (null = the end).
+      const ids = s.tabs.map((x) => x.id).filter((x) => x !== "home" && x !== dragId);
+      let before = t.id === "home" ? ids[0] : after ? ids[ids.indexOf(t.id) + 1] : t.id;
+      if (before === undefined) before = null;
+      deck.moveApp(dragId, { before });
+    });
     tabsEl.appendChild(b);
   });
 }
+let dragId = null;
+function clearDrop() { tabsEl.querySelectorAll(".dropBefore, .dropAfter").forEach((x) => x.classList.remove("dropBefore", "dropAfter")); }
 
 deck.onState(render);
 deck.getState();

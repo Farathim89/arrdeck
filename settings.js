@@ -64,6 +64,9 @@ function buildCard(a) {
     const say = (text, cls = "") => { result.textContent = text; result.className = "note result " + cls; };
 
     q(".on").addEventListener("change", async (e) => { const r = await deck.setApp(a.id, { on: e.target.checked }); if (r) show(r); });
+    q(".tabName").addEventListener("change", async (e) => { const r = await deck.setApp(a.id, { name: e.target.value }); if (r) show(r); });
+    q(".up").addEventListener("click", async () => { const r = await deck.moveApp(a.id, { dir: -1 }); if (r) show(r); });
+    q(".down").addEventListener("click", async () => { const r = await deck.moveApp(a.id, { dir: 1 }); if (r) show(r); });
     url.addEventListener("change", async () => {
       const r = await deck.setApp(a.id, { url: url.value });
       if (r && r.error) say(r.error, "bad");
@@ -123,9 +126,15 @@ function setState(id, state) {
   el.className = "state " + cls;
 }
 function showCards() {
+  const list = document.getElementById("appList");
   for (const a of s.apps) {
     const el = cards[a.id];
     if (!el) continue;
+    list.appendChild(el);   // in tab order
+    el.querySelector(".appName").textContent = a.name;
+    const tabName = el.querySelector(".tabName");
+    tabName.placeholder = a.defaultName;
+    if (document.activeElement !== tabName) tabName.value = a.name === a.defaultName ? "" : a.name;
     el.classList.toggle("on", a.on);
     el.querySelector(".on").checked = a.on;
     const url = el.querySelector(".url");
@@ -134,6 +143,57 @@ function showCards() {
     el.querySelector(".forget").classList.toggle("hidden", !a.hasKey || a.kind === "web");
   }
 }
+
+// ---- find the API keys in the apps' own settings files ----
+const findReport = document.getElementById("findReport");
+function showKeyDirs() {
+  const box = document.getElementById("keyDirs");
+  box.textContent = "";
+  for (const d of s.keyDirs || []) {
+    const row = document.createElement("div");
+    row.className = "keyDir";
+    const name = document.createElement("span");
+    name.textContent = d;
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "secondary small";
+    x.textContent = "✕";
+    x.title = "Don't look here any more";
+    x.addEventListener("click", async () => { const r = await deck.keyDir(d); if (r) show(r); });
+    row.append(name, x);
+    box.appendChild(row);
+  }
+}
+document.getElementById("addKeyDir").addEventListener("click", async () => { const r = await deck.keyDir(); if (r) show(r); });
+document.getElementById("findKeys").addEventListener("click", async () => {
+  findReport.textContent = "Looking…";
+  findReport.className = "report";
+  const r = await deck.findKeys();
+  if (!r) return;
+  show(r.settings);
+  findReport.textContent = "";
+  const LABEL = { saved: ["✓ saved", "ok"], same: ["✓ already saved", "ok"], notfound: ["not found", "dim"] };
+  for (const x of r.report) {
+    const a = s.apps.find((y) => y.id === x.id);
+    if (x.status === "notfound" && a && !a.on) continue;   // switched-off apps: only when found
+    const row = document.createElement("div");
+    row.className = "reportRow";
+    const [text, cls] = LABEL[x.status];
+    const n = document.createElement("b"); n.textContent = x.name;
+    const st = document.createElement("span"); st.className = cls; st.textContent = text;
+    const f = document.createElement("small"); f.textContent = x.file || "";
+    row.append(n, st, f);
+    findReport.appendChild(row);
+    if (x.status !== "notfound") deck.testApp(x.id).then((t) => setState(x.id, t.state));
+  }
+  const found = r.report.filter((x) => x.status !== "notfound").length;
+  const sum = document.createElement("p");
+  sum.className = "note";
+  sum.textContent = found
+    ? `Found ${found} key${found === 1 ? "" : "s"} (they're kept encrypted in ArrDeck's settings).`
+    : `No keys found in ${r.searched.join(", ")}. Use "Also look in a folder…" for where your apps keep their settings, or paste a key below.`;
+  findReport.appendChild(sum);
+});
 
 // ---- add your own app ----
 const addName = document.getElementById("addName");
@@ -181,6 +241,7 @@ function show(next) {
   syncCards();
   showCards();
   showUpdate();
+  showKeyDirs();
 }
 
 deck.getSettings().then((r) => {

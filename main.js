@@ -78,6 +78,12 @@ function saveConfig(now = false) {
 // ArrDeck's and the apps' own colours always show. (See also ignoreWindowsTheme.)
 app.commandLine.appendSwitch("disable-blink-features", "ForcedColors");
 
+// Look like plain Chrome: Google refuses sign-in in "embedded" browsers (it reads "Electron" in
+// the browser id), as in PlexDeck.
+app.userAgentFallback = app.userAgentFallback
+  .replace(/\s*Electron\/\S+/, "")
+  .replace(/\s*ArrDeck\/\S+/i, "");
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 // Windows app id (taskbar button, pinning, notifications). Windows remembers, per app id, which
@@ -252,18 +258,48 @@ async function applyCss(entry) {
 // whatever Windows is set to. Chromium's own page emulation does it per page and keeps it
 // across navigations.
 function ignoreWindowsTheme(c) {
-  try {
-    if (!c.debugger.isAttached()) c.debugger.attach("1.3");
-    c.debugger.sendCommand("Emulation.setEmulatedMedia", {
-      features: [
-        { name: "prefers-color-scheme", value: "dark" },
-        { name: "forced-colors", value: "none" },
-        { name: "prefers-contrast", value: "no-preference" },
-      ],
-    }).catch(() => {});
-  } catch (err) { console.error("theme", err.message); }
+  const emulate = (reattach) => {
+    try {
+      if (c.isDestroyed()) return;
+      // After a page moves the window to a fresh process (Google's sign-in does, for security),
+      // the old link still points at the old page: connect again to reach the new one.
+      if (reattach && c.debugger.isAttached()) c.debugger.detach();
+      if (!c.debugger.isAttached()) c.debugger.attach("1.3");
+      c.debugger.sendCommand("Emulation.setEmulatedMedia", {
+        features: [
+          { name: "prefers-color-scheme", value: "dark" },
+          { name: "forced-colors", value: "none" },
+          { name: "prefers-contrast", value: "no-preference" },
+        ],
+      }).catch(() => {});
+    } catch (err) { console.error("theme", err.message); }
+  };
+  emulate(false);
+  c.on("did-navigate", () => emulate(true));
+  c.on("dom-ready", () => emulate(false));   // once more when the page is there
 }
 
+// A sign-in pop-up (Seerr → Plex, and Plex → Google / Apple): no Windows theme (so pages that
+// have a dark mode, like Google's, use it), Plex's pages in the dark look, sized to the screen —
+// and the same for any pop-up it opens in turn.
+function setupPopup(child) {
+  const wc = child.webContents;
+  ignoreWindowsTheme(wc);
+  darkPlexPages(wc);
+  wc.setWindowOpenHandler(() => ({
+    action: "allow",
+    overrideBrowserWindowOptions: { parent: child, ...popupBounds(), autoHideMenuBar: true, backgroundColor: BG, icon: ICON },
+  }));
+  wc.on("did-create-window", setupPopup);
+  // Other sign-in pages (Google's…): shrink a little if they're taller than the window.
+  wc.on("did-finish-load", async () => {
+    if (isPlexPage(wc.getURL())) return;   // Plex's pages: their own 85%
+    try {
+      const [h, inner] = await wc.executeJavaScript("[document.documentElement.scrollHeight, innerHeight]");
+      if (h > inner + 4) wc.setZoomFactor(Math.max(0.75, Math.floor((wc.getZoomFactor() * inner / h) * 100) / 100));
+    } catch {}
+  });
+}
 // A sign-in pop-up: 520 x up to 700 points, never taller than the screen, centred over ArrDeck.
 function popupBounds() {
   const wa = screen.getDisplayMatching(win.getBounds()).workArea;
@@ -382,11 +418,8 @@ function createAppView(a) {
     else openExternal(url);
     return { action: "deny" };
   });
-  // Pop-ups (sign-in windows): no Windows theme, and Plex's sign-in in the dark High contrast look.
-  c.on("did-create-window", (child) => {
-    ignoreWindowsTheme(child.webContents);
-    darkPlexPages(child.webContents);
-  });
+  // Pop-ups (sign-in windows): see setupPopup.
+  c.on("did-create-window", setupPopup);
   win.contentView.addChildView(view);
   views.set(a.id, entry);
   return entry;

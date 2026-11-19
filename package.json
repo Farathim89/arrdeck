@@ -1,7 +1,7 @@
 {
   "name": "arrdeck",
   "productName": "ArrDeck",
-  "version": "1.5.14",
+  "version": "1.5.15",
   "description": "ArrDeck: Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window, with a Home dashboard and a High contrast look",
   "main": "main.js",
   "scripts": {

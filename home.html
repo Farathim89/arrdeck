@@ -58,7 +58,11 @@
         <section class="box"><h2>Coming up <span class="count" data-count="calendar"></span></h2><div id="calendar"></div></section>
       </section>
       <section class="pane" id="p-missing">
-        <p class="note">Monitored but not downloaded yet, newest first (each app's Wanted → Missing). <b>Search</b> looks for one; <b>Search all missing</b> has the app look for everything it's missing — that can keep your indexers busy for a while.</p>
+        <div class="switch" id="wantedSwitch" role="tablist">
+          <button type="button" data-view="missing">Missing <span class="n"></span></button>
+          <button type="button" data-view="cutoff">Cutoff unmet <span class="n"></span></button>
+        </div>
+        <p class="note"><b>Missing</b>: monitored but not downloaded yet. <b>Cutoff unmet</b>: you have it, but not in the quality its profile wants yet. Newest first. <b>Search</b> looks for one; <b>Search all …</b> has the app look for all of them — that can keep your indexers busy for a while.</p>
         <div id="missing"></div>
       </section>
       <section class="pane" id="p-health">

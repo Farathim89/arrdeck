@@ -79,16 +79,24 @@ function searchBody(m) {
     : m.bookId ? { name: "BookSearch", bookIds: [m.bookId] } : null;
 }
 
-// ---- missing (the apps' "Wanted → Missing") ------------------------------------------------
-// Monitored but not downloaded yet, newest first. `all` = the app's own "search all missing".
+// ---- missing & cutoff unmet (the apps' "Wanted") -----------------------------------------
+// missing: monitored but not downloaded yet. cutoff: downloaded, but not in the quality the
+// profile wants yet. Newest first. `all` / `cutoffAll` = the app's own "search all" commands
+// (names as in each app's frontend/src/Commands/commandNames). `sort` = a sort key the app's
+// Wanted controllers accept (they quietly ignore unknown ones).
 const WANTED = {
-  series: { inc: "&includeSeries=true", sort: "airDateUtc", all: "MissingEpisodeSearch" },
-  movie: { inc: "", sort: "", all: "MissingMoviesSearch" },
-  album: { inc: "&includeArtist=true", sort: "releaseDate", all: "MissingAlbumSearch" },
-  book: { inc: "&includeAuthor=true", sort: "releaseDate", all: "MissingBookSearch" },
+  series: { inc: "&includeSeries=true", sort: "episodes.airDateUtc", all: "MissingEpisodeSearch", cutoffAll: "CutoffUnmetEpisodeSearch" },
+  movie: { inc: "", sort: "movieMetadata.year", all: "MissingMoviesSearch", cutoffAll: "CutoffUnmetMoviesSearch" },
+  album: { inc: "&includeArtist=true", sort: "releaseDate", all: "MissingAlbumSearch", cutoffAll: "CutoffUnmetAlbumSearch" },
+  book: { inc: "&includeAuthor=true", sort: "releaseDate", all: "MissingBookSearch", cutoffAll: "CutoffUnmetBookSearch" },
 };
 const MISSING_PAGE = 50;
-function wantedItem(app, r) {
+function wantedItem(app, r, list = "missing") {
+  const item = wantedItemOf(app, r);
+  if (item.link === "/wanted/missing") item.link = `/wanted/${list === "cutoff" ? "cutoffunmet" : "missing"}`;
+  return item;
+}
+function wantedItemOf(app, r) {
   const ep = (s, e) => `S${String(s).padStart(2, "0")}E${String(e).padStart(2, "0")}`;
   if (app.media === "series") {
     return { app: app.id, title: (r.series && r.series.title) || "?", sub: `${ep(r.seasonNumber, r.episodeNumber)} · ${r.title || ""}`,
@@ -105,10 +113,10 @@ function wantedItem(app, r) {
   return { app: app.id, title: (r.author && r.author.authorName) || "?", sub: r.title || "", when: r.releaseDate || "",
     media: { bookId: r.id }, link: "/wanted/missing" };
 }
-async function fetchWanted(app, key) {
+async function fetchWanted(app, key, list = "missing") {
   const w = WANTED[app.media];
   if (!w) return { total: 0, items: [] };
-  const base = `/wanted/missing?page=1&pageSize=${MISSING_PAGE}&monitored=true${w.inc}`;
+  const base = `/wanted/${list === "cutoff" ? "cutoff" : "missing"}?page=1&pageSize=${MISSING_PAGE}&monitored=true${w.inc}`;
   let r = null;
   try {
     r = await get(app, key, base + (w.sort ? `&sortKey=${w.sort}&sortDirection=descending` : ""));
@@ -117,17 +125,17 @@ async function fetchWanted(app, key) {
     r = await get(app, key, base).catch(() => null);   // an older app that doesn't know that sort
   }
   if (!r) return { total: 0, items: [] };
-  const items = records(r).map((x) => wantedItem(app, x));
-  if (!w.sort) items.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+  const items = records(r).map((x) => wantedItem(app, x, list));
+  items.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));   // newest first within the page
   return { total: Number(r.totalRecords) || items.length, items };
 }
-// Search one missing item, or (item = null) everything the app has missing.
-async function searchMissing(app, key, item) {
+// Search one item, or (item = null) everything the app has missing / below cutoff.
+async function searchMissing(app, key, item, list = "missing") {
   if (!key) throw new Error(`no API key for ${app.name}`);
   if (!item) {
     const w = WANTED[app.media];
     if (!w) throw new Error("nothing to search for");
-    return send(app, key, "POST", "/command", { name: w.all });
+    return send(app, key, "POST", "/command", { name: list === "cutoff" ? w.cutoffAll : w.all });
   }
   const body = searchBody(item.media);
   if (!body) throw new Error("nothing to search for");
@@ -234,7 +242,7 @@ function calendarItems(app, list, start, end) {
 
 // One app's part of the dashboard. Never throws: problems end up in `state`.
 async function fetchApp(app, key, days) {
-  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], wanted: [], missing: 0, badges: null };
+  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], wanted: [], missing: 0, cutoff: [], cutoffTotal: 0, badges: null };
   res.up = await isUp(app);
   if (!res.up) { res.state = "down"; return res; }
   if (app.kind === "web") { res.state = "ok"; return res; }   // a plain web page: no API
@@ -258,6 +266,7 @@ async function fetchApp(app, key, days) {
           res.calendar = calendarItems(app, Array.isArray(c) ? c : [], start, end);
         }));
         jobs.push(fetchWanted(app, key).then((w) => { res.wanted = w.items; res.missing = w.total; }).catch(() => {}));
+        jobs.push(fetchWanted(app, key, "cutoff").then((w) => { res.cutoff = w.items; res.cutoffTotal = w.total; }).catch(() => {}));
       }
       await Promise.all(jobs);
     } else if (app.kind === "seerr") {
@@ -294,6 +303,7 @@ async function fetchDashboard(apps, keyFor, days) {
     apps: parts,
     queue: parts.flatMap((p) => p.queue),
     wanted: parts.flatMap((p) => p.wanted),
+    cutoff: parts.flatMap((p) => p.cutoff),
     requests: parts.flatMap((p) => p.pending),
     recentRequests: parts.flatMap((p) => p.recent),
     calendar: parts.flatMap((p) => p.calendar).sort(byTime),

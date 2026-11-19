@@ -101,3 +101,10 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: va
 .note.more { margin: 10px 0 0; font-size: 12px; }
 .mitem { grid-template-columns: 1fr auto auto; }
 .mitem .qactions { grid-column: auto; margin: 0; justify-content: flex-end; }
+
+/* Missing | Cutoff unmet switch */
+.switch { display: inline-flex; border: 1px solid var(--fg); margin: 0 0 10px; }
+.switch button { background: #000; border: 0; padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.switch button + button { border-left: 1px solid var(--fg); }
+.switch button.active { background: var(--gold); color: #000; }
+.switch .n { font-size: 11px; color: inherit; opacity: .8; }

@@ -216,8 +216,21 @@ function renderCalendar(box, limit) {
   seeAll(box, "calendar", data.calendar.length, limit);
 }
 
-// ---- missing -------------------------------------------------------------------------------
-// One box per app: how many it's missing, "Search all missing…" (asks first), the newest ones.
+// ---- missing & cutoff unmet ----------------------------------------------------------------
+// The Missing tab shows one of two lists (the switch at its top): Missing, or Cutoff unmet
+// (have it, but not in the quality the profile wants yet). One box per app, newest first,
+// "Search all …" per app (asks first), "Search" per item.
+const LISTS = {
+  missing: { items: () => data.wanted || [], total: (a) => a.missing || 0, word: "missing", none: "Nothing missing.", page: "Wanted → Missing" },
+  cutoff: { items: () => data.cutoff || [], total: (a) => a.cutoffTotal || 0, word: "below cutoff", none: "Everything meets its cutoff.", page: "Wanted → Cutoff Unmet" },
+};
+let wantedView = "missing";
+try { if (localStorage.getItem("wantedView") === "cutoff") wantedView = "cutoff"; } catch {}
+document.querySelectorAll("#wantedSwitch button").forEach((b) => b.addEventListener("click", () => {
+  wantedView = b.dataset.view;
+  try { localStorage.setItem("wantedView", wantedView); } catch {}
+  if (data) renderMissing();
+}));
 function missingButton(label, run, cls = "") {
   const b = el("button", "qbtn" + cls, label);
   b.type = "button";
@@ -227,41 +240,51 @@ function missingButton(label, run, cls = "") {
   });
   return b;
 }
-async function runSearch(bar, note, appId, key, all) {
+async function runSearch(bar, note, appId, key, all, list) {
   bar.querySelectorAll("button").forEach((x) => (x.disabled = true));
   note.textContent = "…";
   note.className = "qnote";
-  const r = await deck.searchMissing(appId, key, all);
+  const r = await deck.searchMissing(appId, key, all, list);
   bar.querySelectorAll("button").forEach((x) => (x.disabled = false));
   if (!r) { note.textContent = ""; return; }
   note.textContent = r.message;
   note.className = "qnote " + (r.ok ? "ok" : "bad");
 }
-function searchAllBar(a) {
+function searchAllBar(a, list) {
+  const L = LISTS[list];
   const bar = el("div", "qactions");
   const note = el("span", "qnote");
-  bar.append(missingButton("Search all missing…", () => {
+  bar.append(missingButton(list === "cutoff" ? "Search all below cutoff…" : "Search all missing…", () => {
     bar.textContent = "";
     bar.classList.add("asking");
-    bar.append(el("span", "qask", `Search your indexers for all ${a.missing} missing in ${a.name}? It can take a while.`));
-    bar.append(missingButton("Search all", () => runSearch(bar, note, a.id, null, true), " go"));
-    bar.append(missingButton("Cancel", () => bar.replaceWith(searchAllBar(a))), note);
+    bar.append(el("span", "qask", `Search your indexers for all ${L.total(a)} ${L.word} in ${a.name}? It can take a while.`));
+    bar.append(missingButton("Search all", () => runSearch(bar, note, a.id, null, true, list), " go"));
+    bar.append(missingButton("Cancel", () => bar.replaceWith(searchAllBar(a, list))), note);
   }), note);
   return bar;
 }
 function renderMissing() {
+  const list = wantedView;
+  const L = LISTS[list];
+  document.querySelectorAll("#wantedSwitch button").forEach((b) => b.classList.toggle("active", b.dataset.view === list));
+  const apps = data.apps.filter((a) => a.hasQueue && a.state === "ok");
+  for (const [k, X] of Object.entries(LISTS)) {
+    const n = apps.reduce((t, a) => t + X.total(a), 0);
+    const c = document.querySelector(`#wantedSwitch [data-view="${k}"] .n`);
+    if (c) c.textContent = n ? String(n) : "";
+  }
   const box = $("missing");
   box.textContent = "";
-  const apps = data.apps.filter((a) => a.hasQueue && a.state === "ok");
   if (!apps.length) { box.appendChild(el("div", "empty", "Needs the apps' API keys (Settings → Apps → Find my API keys).")); return; }
   for (const a of apps) {
+    const total = L.total(a);
     const sec = el("section", "box");
     const h = el("h2", null, `${a.name} `);
-    h.appendChild(el("span", "count", a.missing ? `(${a.missing} missing)` : ""));
+    h.appendChild(el("span", "count", total ? `(${total} ${L.word})` : ""));
     sec.appendChild(h);
-    const items = (data.wanted || []).filter((w) => w.app === a.id);
-    if (!a.missing) { sec.appendChild(el("div", "empty", "Nothing missing.")); box.appendChild(sec); continue; }
-    sec.appendChild(searchAllBar(a));
+    const items = L.items().filter((w) => w.app === a.id);
+    if (!total) { sec.appendChild(el("div", "empty", L.none)); box.appendChild(sec); continue; }
+    sec.appendChild(searchAllBar(a, list));
     for (const w of items) {
       const row = el("div", "item mitem");
       const mid = el("div");
@@ -271,12 +294,12 @@ function renderMissing() {
       if (w.when) right.append(new Date(w.when).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }));
       const bar = el("div", "qactions");
       const note = el("span", "qnote");
-      bar.append(note, missingButton("Search", () => runSearch(bar, note, a.id, JSON.stringify(w.media || {}), false)));
+      bar.append(note, missingButton("Search", () => runSearch(bar, note, a.id, JSON.stringify(w.media || {}), false, list)));
       row.append(mid, right, bar);
       row.addEventListener("click", () => deck.open(a.id, w.link));
       sec.appendChild(row);
     }
-    if (a.missing > items.length) sec.appendChild(el("p", "note more", `Showing the newest ${items.length} of ${a.missing}. All of them are in ${a.name}: Wanted → Missing.`));
+    if (total > items.length) sec.appendChild(el("p", "note more", `Showing the newest ${items.length} of ${total}. All of them are in ${a.name}: ${L.page}.`));
     box.appendChild(sec);
   }
 }

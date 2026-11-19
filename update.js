@@ -174,7 +174,10 @@ module.exports = function createUpdater({ getWin, dataDir, getConfig, saveConfig
     if (response === 0) { install(true); app.quit(); }
   }
 
-  // Hidden PowerShell: wait for ArrDeck.exe to close, swap in the new one, start it again if asked.
+  // A hidden PowerShell (update\install.ps1, log in update\install.log) waits for ArrDeck.exe
+  // to close, swaps in the new one and starts it again if asked. It is started through WMI,
+  // not as our child: the portable .exe runs ArrDeck in a Windows job that ends every process
+  // of ours when ArrDeck closes, the swapper included.
   let installing = false;
   function install(restart) {
     if (installing || state !== "ready" || !exeFile || !fs.existsSync(newExe)) return;
@@ -182,13 +185,32 @@ module.exports = function createUpdater({ getWin, dataDir, getConfig, saveConfig
     getConfig().updatedFrom = app.getVersion();
     saveConfig(true);
     const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
-    const script = `$ProgressPreference = 'SilentlyContinue'; $new = ${q(newExe)}; $exe = ${q(exeFile)};` +
-      "for ($i = 0; $i -lt 240; $i++) { if (-not (Get-Process | Where-Object { $_.Path -eq $exe })) { break }; Start-Sleep -Milliseconds 500 };" +
-      "$ok = $false; for ($i = 0; $i -lt 60 -and -not $ok; $i++) { try { Move-Item -LiteralPath $new -Destination $exe -Force -ErrorAction Stop; $ok = $true } catch { Start-Sleep -Milliseconds 500 } };" +
-      (restart ? "Start-Process -FilePath $exe;" : "");
-    require("child_process").spawn("powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
-      { detached: true, stdio: "ignore", windowsHide: true }).unref();
+    const ps1 = path.join(updateDir, "install.ps1");
+    const script = [
+      `$ProgressPreference = 'SilentlyContinue'`,
+      `$new = ${q(newExe)}; $exe = ${q(exeFile)}; $log = ${q(path.join(updateDir, "install.log"))}`,
+      `function Log($m) { Add-Content -LiteralPath $log -Value ((Get-Date -Format s) + ' ' + $m) }`,
+      `Log "waiting for ArrDeck to close"`,
+      `for ($i = 0; $i -lt 240; $i++) { if (-not (Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe })) { break }; Start-Sleep -Milliseconds 500 }`,
+      `$ok = $false; $err = ''`,
+      `for ($i = 0; $i -lt 60 -and -not $ok; $i++) { try { Move-Item -LiteralPath $new -Destination $exe -Force -ErrorAction Stop; $ok = $true } catch { $err = $_.Exception.Message; Start-Sleep -Milliseconds 500 } }`,
+      `if ($ok) { Log "new ArrDeck.exe is in place" } else { Log ("couldn't replace ArrDeck.exe: " + $err) }`,
+      restart ? `Start-Process -FilePath $exe; Log "started ArrDeck"` : `Log "done (not restarting)"`,
+    ].join("\r\n");
+    try {
+      fs.writeFileSync(ps1, "﻿" + script, "utf8");
+      const cmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${ps1}"`;
+      const launcher = "$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 };" +
+        `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ${q(cmd)}; ProcessStartupInformation = $si };` +
+        "exit $r.ReturnValue";
+      const r = require("child_process").spawnSync("powershell.exe",
+        ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", Buffer.from(launcher, "utf16le").toString("base64")],
+        { windowsHide: true, timeout: 20000 });
+      if (r.status !== 0) throw new Error(`WMI start failed (${r.status})`);
+    } catch (err) {
+      console.error("update install", err);
+      installing = false;
+    }
   }
   // Downloaded but you chose Later: it goes in when you close ArrDeck (without starting again).
   app.on("will-quit", () => install(false));
@@ -201,7 +223,8 @@ module.exports = function createUpdater({ getWin, dataDir, getConfig, saveConfig
       saveConfig();
       if (Notification.isSupported()) new Notification({ title: "ArrDeck", body: `Updated to ${app.getVersion()} (from ${from}).`, icon }).show();
     }
-    try { fs.rmSync(updateDir, { recursive: true, force: true }); } catch {}
+    // Tidy up what an update left (install.log stays until the next update, for checking).
+    try { for (const f of fs.readdirSync(updateDir)) if (f !== "install.log") fs.rmSync(path.join(updateDir, f), { force: true }); } catch {}
     const auto = () => getConfig().updateCheck !== false;
     setTimeout(() => { if (auto()) check(false); }, 10000);
     setInterval(() => { if (auto()) check(false); }, 12 * 60 * 60 * 1000);

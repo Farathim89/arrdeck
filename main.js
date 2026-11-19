@@ -80,7 +80,10 @@ app.commandLine.appendSwitch("disable-blink-features", "ForcedColors");
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
-const APP_ID = "com.farathim.arrdeck";
+// Windows app id (taskbar button, pinning, notifications). Changed in 1.5.2: Windows had a
+// broken taskbar icon stuck on the old one (from a Start menu test entry whose .exe was gone).
+const APP_ID = "Farathim.ArrDeck";
+const OLD_APP_IDS = ["com.farathim.arrdeck"];
 app.setAppUserModelId(APP_ID);
 // Started by Windows at sign-in ("Start with Windows"): straight to the tray.
 const startHidden = process.argv.includes("--hidden");
@@ -701,7 +704,7 @@ function applyStartMenu() {
     } else if (fs.existsSync(lnk)) {
       // Only remove it if it's ours.
       const d = (() => { try { return shell.readShortcutLink(lnk); } catch { return {}; } })();
-      if (d.appUserModelId === APP_ID) fs.unlinkSync(lnk);
+      if (d.appUserModelId === APP_ID || OLD_APP_IDS.includes(d.appUserModelId)) fs.unlinkSync(lnk);
     }
   } catch (err) { console.error("start menu", err); }
 }

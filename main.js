@@ -642,7 +642,9 @@ function notifyChanges(prev, next) {
   if (config.notifyHealth) {
     const hKey = (h) => `${h.app}|${h.type}|${h.message}`;
     const seen = new Set(prev.health.map(hKey));
-    const fresh = next.health.filter((h) => (h.type === "error" || h.type === "warning") && !seen.has(hKey(h)));
+    // Only apps ArrDeck could already read last time (a key that was just added isn't "new trouble").
+    const readBefore = new Set(prev.apps.filter((p) => p.state === "ok").map((p) => p.id));
+    const fresh = next.health.filter((h) => (h.type === "error" || h.type === "warning") && readBefore.has(h.app) && !seen.has(hKey(h)));
     for (const h of fresh.slice(0, 3)) notify(`${appName(h.app)}: ${h.type === "error" ? "error" : "warning"}`, h.message, h.app);
     for (const p of next.apps) {
       const before = prev.apps.find((x) => x.id === p.id);

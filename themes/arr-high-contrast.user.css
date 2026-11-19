@@ -1,7 +1,7 @@
 /* ==UserStyle==
 @name           Arr High contrast (Animekeeper style)
 @namespace      farathim.animekeeper
-@version        1.0.3
+@version        1.0.4
 @description    Black, white and gold for Sonarr, Radarr, Lidarr, Prowlarr (and Readarr / Whisparr) - the High contrast theme of Animekeeper and Shelfkeeper.
 @author         Farathim
 @license        MIT
@@ -191,38 +191,38 @@
     --progressBarBackgroundColor: #333333 !important;
   }
 
-  /* check boxes (class names like "CheckInput/primaryIsChecked/abc12"): ticked = a dark fill with the
+  /* check boxes (class names like "CheckInput-primaryIsChecked-bUxcU"): ticked = a dark fill with the
      colour on the edge and the tick, like the buttons; unticked = black with a white edge */
-  [class*="CheckInput/primaryIsChecked"] { background-color: #332b00 !important; border-color: #ffd700 !important; color: #ffd700 !important; }
-  [class*="CheckInput/successIsChecked"] { background-color: #00331a !important; border-color: #00ff66 !important; color: #00ff66 !important; }
-  [class*="CheckInput/warningIsChecked"] { background-color: #332300 !important; border-color: #ffb020 !important; color: #ffb020 !important; }
-  [class*="CheckInput/dangerIsChecked"] { background-color: #330d0d !important; border-color: #ff4040 !important; color: #ff4040 !important; }
-  [class*="CheckInput/isNotChecked"] { background-color: #000000 !important; border-color: #ffffff !important; }
+  [class*="CheckInput-primaryIsChecked-"] { background-color: #332b00 !important; border-color: #ffd700 !important; color: #ffd700 !important; }
+  [class*="CheckInput-successIsChecked-"] { background-color: #00331a !important; border-color: #00ff66 !important; color: #00ff66 !important; }
+  [class*="CheckInput-warningIsChecked-"] { background-color: #332300 !important; border-color: #ffb020 !important; color: #ffb020 !important; }
+  [class*="CheckInput-dangerIsChecked-"] { background-color: #330d0d !important; border-color: #ff4040 !important; color: #ff4040 !important; }
+  [class*="CheckInput-isNotChecked-"] { background-color: #000000 !important; border-color: #ffffff !important; }
 
-  /* number badges / labels ("Label/danger/abc12"): a dark fill with the colour on the edge and
+  /* number badges / labels ("Label-danger-NLIVv"): a black box with the colour on the edge and
      white text, instead of a bright fill (outline labels stay as they are) */
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/danger/"] { background-color: #330d0d !important; border-color: #ff4040 !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/warning/"] { background-color: #332300 !important; border-color: #ffb020 !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/success/"] { background-color: #00331a !important; border-color: #00ff66 !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/info/"] { background-color: #00263d !important; border-color: #40c0ff !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/primary/"] { background-color: #332b00 !important; border-color: #ffd700 !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/purple/"] { background-color: #1f1033 !important; border-color: #b080ff !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/default/"] { background-color: #111111 !important; border-color: #ffffff !important; color: #ffffff !important; }
-  [class*="Label/label/"]:not([class*="Label/outline"])[class*="Label/disabled/"] { background-color: #111111 !important; border-color: #999999 !important; color: #cccccc !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-danger-"] { background-color: #000000 !important; border-color: #ff4040 !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-warning-"] { background-color: #000000 !important; border-color: #ffb020 !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-success-"] { background-color: #000000 !important; border-color: #00ff66 !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-info-"] { background-color: #000000 !important; border-color: #40c0ff !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-primary-"] { background-color: #000000 !important; border-color: #ffd700 !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-purple-"] { background-color: #000000 !important; border-color: #b080ff !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-default-"] { background-color: #000000 !important; border-color: #ffffff !important; color: #ffffff !important; }
+  [class*="Label-label-"]:not([class*="Label-outline-"])[class*="Label-disabled-"] { background-color: #000000 !important; border-color: #999999 !important; color: #cccccc !important; }
 
   /* the current page in the left menu: black with a white border and white text (no grey, no gold) */
-  [class*="PageSidebarItem/isActiveParentLink"] { background-color: #000000 !important; box-shadow: inset 0 0 0 2px #ffffff !important; }
-  [class*="PageSidebarItem/isActiveLink"], [class*="PageSidebarItem/isActiveLink"] * { color: #ffffff !important; }
-  [class*="PageSidebarItem/isActiveItem"] { border-left-color: #ffffff !important; }
-  [class*="PageSidebarItem/childLink"][class*="PageSidebarItem/isActiveLink"] { font-weight: 700 !important; text-decoration: underline !important; text-underline-offset: 4px; }
+  [class*="PageSidebarItem-isActiveParentLink-"] { background-color: #000000 !important; box-shadow: inset 0 0 0 2px #ffffff !important; }
+  [class*="PageSidebarItem-isActiveLink-"], [class*="PageSidebarItem-isActiveLink-"] * { color: #ffffff !important; }
+  [class*="PageSidebarItem-isActiveItem-"] { border-left-color: #ffffff !important; }
+  [class*="PageSidebarItem-childLink-"][class*="PageSidebarItem-isActiveLink-"] { font-weight: 700 !important; text-decoration: underline !important; text-underline-offset: 4px; }
 
   /* progress bars: darker fills, white text on them */
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/danger/"] { background: #7a1414 !important; }
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/success/"] { background: #0a5c2a !important; }
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/warning/"] { background: #7a5200 !important; }
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/primary/"] { background: #665500 !important; }
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/info/"] { background: #0b4a6e !important; }
-  [class*="ProgressBar/progressBar/"][class*="ProgressBar/purple/"] { background: #4b2a80 !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-danger-"] { background: #7a1414 !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-success-"] { background: #0a5c2a !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-warning-"] { background: #7a5200 !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-primary-"] { background: #665500 !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-info-"] { background: #0b4a6e !important; }
+  [class*="ProgressBar-progressBar-"][class*="ProgressBar-purple-"] { background: #4b2a80 !important; }
 
   /* a clear focus ring everywhere (keyboard use) */
   :focus-visible {

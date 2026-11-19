@@ -102,10 +102,54 @@ function renderQueue() {
     prog.appendChild(fill);
     row.append(tag(q.app), mid, right, prog);
     if (q.message) row.append(el("div", "msg", q.message));
+    row.append(queueButtons(q));
     row.title = [q.client, q.protocol].filter(Boolean).join(" · ");
     row.addEventListener("click", () => deck.open(q.app, q.link));
     box.appendChild(row);
   }
+}
+
+// Search again / Remove… / Grab now, under a queue row. Their answer shows next to them.
+function queueButtons(q) {
+  const bar = el("div", "qactions");
+  const note = el("span", "qnote");
+  const add = (label, action, tip) => {
+    const b = el("button", "qbtn", label);
+    b.type = "button";
+    b.title = tip;
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();   // not the row's "open in the app"
+      bar.querySelectorAll("button").forEach((x) => (x.disabled = true));
+      note.textContent = "…";
+      note.className = "qnote";
+      const r = await deck.queueAction(q.app, q.qid, action);
+      bar.querySelectorAll("button").forEach((x) => (x.disabled = false));
+      if (!r || r.cancelled) { note.textContent = ""; return; }
+      note.textContent = r.message;
+      note.className = "qnote " + (r.ok ? "ok" : "bad");
+    });
+    bar.appendChild(b);
+  };
+  if (q.pending) add("Grab now", "grab", "Skip the delay and send it to the download client now");
+  if (q.media) add("Search again", "search", "Look for this episode / movie / album again (keeps this download)");
+  // Remove… asks right here (also deletes it in the download client).
+  const ask = el("button", "qbtn", "Remove…");
+  ask.type = "button";
+  ask.title = "Remove it from the queue and the download client (asks first)";
+  ask.addEventListener("click", (e) => {
+    e.stopPropagation();
+    bar.textContent = "";
+    bar.classList.add("asking");
+    bar.append(el("span", "qask", `Remove from ${appInfo(q.app).name} and ${q.client || "the download client"}?`));
+    add("Remove", "remove", "Remove it (what it downloaded so far goes too)");
+    add("Remove and find another", "blocklist", "Blocklist this release, so the app looks for a different one");
+    const cancel = el("button", "qbtn", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", (ev) => { ev.stopPropagation(); bar.replaceWith(queueButtons(q)); });
+    bar.append(cancel, note);
+  });
+  bar.append(ask, note);
+  return bar;
 }
 
 function renderCalendar() {
@@ -167,4 +211,22 @@ function render(d) {
 }
 
 deck.onHome(render);
+
+// What ArrDeck alerted about (download done, health, an app down / back), newest first.
+deck.onAlerts((list) => {
+  const box = $("alerts");
+  box.textContent = "";
+  $("alertBox").classList.toggle("hidden", !list.length);
+  $("alertCount").textContent = list.length ? `(${list.length})` : "";
+  for (const a of list.slice(0, 8)) {
+    const row = el("div", "alert");
+    const time = new Date(a.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const mid = el("div");
+    mid.style.minWidth = "0";
+    mid.append(el("div", "title", a.title), el("div", "sub", (a.body || "").replace(/\n/g, " · ")));
+    row.append(el("span", "atime", time), mid);
+    row.addEventListener("click", () => deck.open(a.tab, null));
+    box.appendChild(row);
+  }
+});
 $("refresh").addEventListener("click", () => { $("updated").textContent = "Refreshing…"; deck.refresh(); });

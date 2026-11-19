@@ -68,10 +68,13 @@
             <label class="row"><span>Minimise to the tray<small>no taskbar button; ArrDeck keeps watching your downloads</small></span><input type="checkbox" data-key="minimizeToTray" /></label>
             <label class="row"><span>✕ closes to the tray<small>off = ✕ quits ArrDeck (Quit is always in the tray menu)</small></span><input type="checkbox" data-key="closeToTray" /></label>
             <label class="row"><span>Start with Windows<small>in the tray, when you sign in to Windows</small></span><input type="checkbox" data-key="startWithWindows" /></label>
+            <h2>Taskbar &amp; Start menu</h2>
+            <p class="note"><b>Pin to the taskbar:</b> right-click ArrDeck's button on the taskbar → <b>Pin to taskbar</b>. It pins your ArrDeck.exe. (Pinned it before 1.2.0? Unpin that one and pin again: it pointed at a temporary copy.)</p>
+            <label class="row"><span>Start menu entry<small>find ArrDeck in Start, pin it from there; Windows also needs it to show ArrDeck's alerts reliably</small></span><input type="checkbox" data-key="startMenu" /></label>
             <h2>Alerts</h2>
             <label class="row"><span>When a download is done<small>"Downloaded: …" when an episode, movie or album leaves the queue finished</small></span><input type="checkbox" data-key="notifyDownloads" /></label>
             <label class="row"><span>When something's wrong<small>a new health warning or error, or an app that stops answering (and comes back)</small></span><input type="checkbox" data-key="notifyHealth" /></label>
-            <p class="note">Alerts come from the Home dashboard's checks (Home dashboard → Refresh every), so they need the apps' API keys too.</p>
+            <p class="note">Alerts always show on <b>Home</b> (Recent alerts), as a red dot on the tray icon and a flashing taskbar button. Windows' own pop-ups come too if they're switched on in Windows (Settings → System → Notifications) and the <b>Start menu entry</b> below is on. Alerts come from the Home dashboard's checks, so they need the apps' API keys.</p>
           </div>
 
           <div class="pane" id="about">

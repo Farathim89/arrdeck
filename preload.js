@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld("arrdeck", {
   // Home
   refresh: () => ipcRenderer.send("home:refresh"),
   onHome: on("home"),
+  onAlerts: on("alerts"),
   open: (id, path) => ipcRenderer.send("home:open", { id, path }),
+  queueAction: (app, qid, action) => ipcRenderer.invoke("home:queue-action", { app, qid, action }),
   openExternal: (url) => ipcRenderer.send("open-external", url),
 });

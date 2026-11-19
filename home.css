@@ -57,3 +57,20 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: va
 .htype.notice { color: var(--info); }
 .wiki { background: none; border: 1px solid var(--soft); padding: 2px 10px; cursor: pointer; font-size: 12px; }
 .wiki:hover { border-color: var(--gold); color: var(--gold); }
+
+/* queue buttons */
+.qactions { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.qbtn { background: #000; border: 1px solid var(--soft); padding: 2px 10px; font-size: 12px; cursor: pointer; }
+.qbtn:hover { border-color: var(--gold); color: var(--gold); }
+.qbtn:disabled { opacity: .5; cursor: default; }
+.qnote { font-size: 12px; color: var(--dim); }
+.qnote.ok { color: var(--ok); }
+.qnote.bad { color: var(--bad); }
+.qactions.asking { border: 1px solid var(--bad); padding: 6px 8px; }
+.qask { font-size: 12px; font-weight: 600; color: var(--fg); margin-right: 4px; }
+
+/* recent alerts */
+#alertBox { border-color: var(--gold); }
+.alert { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--soft); cursor: pointer; }
+.alert:hover .title { color: var(--gold); }
+.atime { color: var(--dim); font-size: 12px; }

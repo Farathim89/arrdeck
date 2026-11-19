@@ -63,7 +63,40 @@ function queueItem(app, r) {
     status: r.trackedDownloadState || r.status || "",
     warn: !!warn, error: r.trackedDownloadStatus === "error", message: msg,
     client: r.downloadClient || "", protocol: r.protocol || "",
+    // For the queue buttons: the queue entry, what to search for again, waiting on a delay?
+    qid: r.id, pending: r.status === "delay",
+    media: r.episodeId ? { episodeId: r.episodeId } : r.movieId ? { movieId: r.movieId }
+      : r.albumId ? { albumId: r.albumId } : r.bookId ? { bookId: r.bookId } : null,
   };
+}
+
+// The Home queue's buttons. action: "remove" | "blocklist" (remove + find another) | "search" | "grab".
+async function send(app, key, method, path, body) {
+  const headers = { Accept: "application/json", "X-Api-Key": key };
+  if (body) headers["Content-Type"] = "application/json";
+  const res = await fetch(apiBase(app) + path, {
+    method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(TIMEOUT), redirect: "manual",
+  });
+  if (res.status === 401 || res.status === 403) throw new Error("API key not accepted");
+  if (!res.ok) throw new Error(`${app.name} said HTTP ${res.status}`);
+}
+async function queueAction(app, key, item, action) {
+  if (!key) throw new Error(`no API key for ${app.name}`);
+  const id = encodeURIComponent(item.qid);
+  if (action === "remove") return send(app, key, "DELETE", `/queue/${id}?removeFromClient=true&blocklist=false`);
+  // Blocklisting the release makes the app look for another one by itself.
+  if (action === "blocklist") return send(app, key, "DELETE", `/queue/${id}?removeFromClient=true&blocklist=true&skipRedownload=false`);
+  if (action === "grab") return send(app, key, "POST", `/queue/grab/${id}`);
+  if (action === "search") {
+    const m = item.media || {};
+    const body = m.episodeId ? { name: "EpisodeSearch", episodeIds: [m.episodeId] }
+      : m.movieId ? { name: "MoviesSearch", movieIds: [m.movieId] }
+      : m.albumId ? { name: "AlbumSearch", albumIds: [m.albumId] }
+      : m.bookId ? { name: "BookSearch", bookIds: [m.bookId] } : null;
+    if (!body) throw new Error("nothing to search for");
+    return send(app, key, "POST", "/command", body);
+  }
+  throw new Error("unknown action");
 }
 
 function calendarItems(app, list, start, end) {
@@ -162,4 +195,4 @@ async function fetchDashboard(apps, keyFor, days) {
   };
 }
 
-module.exports = { fetchDashboard, isUp };
+module.exports = { fetchDashboard, isUp, queueAction };

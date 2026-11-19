@@ -16,7 +16,7 @@ const {
 const path = require("path");
 const fs = require("fs");
 const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
-const { fetchDashboard, isUp } = require("./dashboard");
+const { fetchDashboard, isUp, queueAction } = require("./dashboard");
 const createUpdater = require("./update");
 const { findKeys } = require("./keyfinder");
 
@@ -48,6 +48,7 @@ const DEFAULTS = {
   minimizeToTray: true,  // minimise = into the tray (keeps watching downloads)
   closeToTray: false,    // ✕ = into the tray instead of quitting
   startWithWindows: false,
+  startMenu: false,      // a Start menu entry (outside ArrDeck's folder, so opt-in)
   notifyDownloads: true, // "Downloaded: …" when something leaves the queue finished
   notifyHealth: true,    // new health warnings / errors, an app that stops answering
   keyDirs: [],           // extra folders to look for API keys in
@@ -78,7 +79,8 @@ app.commandLine.appendSwitch("disable-blink-features", "ForcedColors");
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
-app.setAppUserModelId("com.farathim.arrdeck");
+const APP_ID = "com.farathim.arrdeck";
+app.setAppUserModelId(APP_ID);
 // Started by Windows at sign-in ("Start with Windows"): straight to the tray.
 const startHidden = process.argv.includes("--hidden");
 let isQuitting = false;
@@ -336,7 +338,7 @@ function createHomeView() {
   view.webContents.on("before-input-event", onShortcut);
   view.webContents.on("will-navigate", (e) => e.preventDefault());
   view.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: "deny" }; });
-  view.webContents.on("did-finish-load", () => { if (dash) view.webContents.send("home", homePayload()); });
+  view.webContents.on("did-finish-load", () => { if (dash) view.webContents.send("home", homePayload()); if (alerts.length) view.webContents.send("alerts", alerts); });
   view.webContents.loadFile(path.join(__dirname, "home.html"));
   win.contentView.addChildView(view);
   views.set("home", entry);
@@ -484,6 +486,12 @@ function createWindow() {
   // (Maximising a hidden window shows it: started in the tray, maximise on first show instead.)
   if (st.maximized && !startHidden) win.maximize();
   else if (st.maximized) win.once("show", () => win.maximize());
+  // The portable .exe runs ArrDeck from a copy in Temp: tell Windows the real ArrDeck.exe,
+  // so "Pin to taskbar" pins that one (and the pinned button starts it again).
+  if (process.env.PORTABLE_EXECUTABLE_FILE) {
+    const exe = process.env.PORTABLE_EXECUTABLE_FILE;
+    win.setAppDetails({ appId: APP_ID, appIconPath: exe, appIconIndex: 0, relaunchCommand: `"${exe}"`, relaunchDisplayName: "ArrDeck" });
+  }
   win.webContents.on("will-navigate", (e) => e.preventDefault());
   ignoreWindowsTheme(win.webContents);
   win.webContents.on("before-input-event", onShortcut);
@@ -499,7 +507,7 @@ function createWindow() {
     win.hide();
     trayHint();
   });
-  win.on("focus", () => { win.webContents.send("focus", true); if (!settingsView && wc()) wc().focus(); });
+  win.on("focus", () => { win.webContents.send("focus", true); markAlertsSeen(); if (!settingsView && wc()) wc().focus(); });
   win.on("blur", () => win.webContents.send("focus", false));
   for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) win.on(ev, () => { layout(); sendState(); });
   win.on("app-command", (_e, cmd) => {
@@ -571,7 +579,26 @@ function startDashboard() {
 // Compares two dashboard reads: a download that left the queue nearly done (= imported),
 // a new health warning / error, an app that stopped answering. The first read only learns.
 const appName = (id) => (appById(id) || { name: id }).name;
+// ArrDeck also keeps its alerts itself (Windows' pop-ups can be switched off): the last 30 for
+// Home's "Recent alerts", a red dot on the tray icon and a flashing taskbar button until you look.
+const alerts = [];
+let unseenAlerts = 0;
+function markAlertsSeen() {
+  if (!unseenAlerts) return;
+  unseenAlerts = 0;
+  updateTrayIcon();
+  if (win) win.flashFrame(false);
+}
 function notify(title, body, tabId) {
+  alerts.unshift({ at: Date.now(), title, body, tab: tabId || "home" });
+  alerts.length = Math.min(alerts.length, 30);
+  const home = views.get("home");
+  if (home) home.view.webContents.send("alerts", alerts);
+  if (!(win && win.isVisible() && win.isFocused())) {
+    unseenAlerts++;
+    updateTrayIcon();
+    if (win && win.isVisible()) win.flashFrame(true);
+  }
   if (Notification.isSupported()) {
     const n = new Notification({ title, body, icon: ICON, silent: false });
     n.on("click", () => { showWindow(); if (tabId) select(tabId); });
@@ -637,6 +664,11 @@ function updateTrayMenu() {
     { label: "Quit ArrDeck", click: quitApp },
   ]));
 }
+function updateTrayIcon() {
+  if (!tray) return;
+  tray.setImage(unseenAlerts ? path.join(__dirname, "build", "tray-alert.png") : ICON);
+  tray.setToolTip(unseenAlerts ? `ArrDeck - ${unseenAlerts} new alert${unseenAlerts === 1 ? "" : "s"}` : "ArrDeck");
+}
 function createTray() {
   tray = new Tray(ICON);
   tray.setToolTip("ArrDeck");
@@ -645,6 +677,25 @@ function createTray() {
 }
 // Windows starts ArrDeck at sign-in, in the tray. The portable .exe registers its own path.
 const loginExe = () => process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+// A Start menu entry (opt-in, the one thing outside ArrDeck's folder): search for ArrDeck, pin it
+// from there, and Windows shows ArrDeck's notifications reliably (it wants a shortcut with our app id).
+const startMenuLink = () => path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "ArrDeck.lnk");
+function applyStartMenu() {
+  if (!app.isPackaged) return;
+  const lnk = startMenuLink();
+  try {
+    if (config.startMenu) {
+      shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? "replace" : "create", {
+        target: loginExe(), appUserModelId: APP_ID, icon: loginExe(), iconIndex: 0,
+        description: "Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window",
+      });
+    } else if (fs.existsSync(lnk)) {
+      // Only remove it if it's ours.
+      const d = (() => { try { return shell.readShortcutLink(lnk); } catch { return {}; } })();
+      if (d.appUserModelId === APP_ID) fs.unlinkSync(lnk);
+    }
+  } catch (err) { console.error("start menu", err); }
+}
 function applyStartWithWindows() {
   if (!app.isPackaged) return;   // "electron ." while developing: don't register electron.exe
   try {
@@ -666,6 +717,8 @@ function publicSettings() {
     minimizeToTray: config.minimizeToTray,
     closeToTray: config.closeToTray,
     startWithWindows: startsWithWindows(),
+    startMenu: !!config.startMenu,
+    portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
     notifyDownloads: config.notifyDownloads,
     notifyHealth: config.notifyHealth,
     keyDirs: config.keyDirs || [],
@@ -726,6 +779,9 @@ ipcMain.handle("settings:set", (e, { key, value } = {}) => {
     refreshDashboard(true);
   } else if (["updateCheck", "minimizeToTray", "closeToTray", "notifyDownloads", "notifyHealth"].includes(key)) {
     config[key] = !!value;
+  } else if (key === "startMenu") {
+    config.startMenu = !!value;
+    applyStartMenu();
   } else if (key === "startWithWindows") {
     config.startWithWindows = !!value;
     applyStartWithWindows();
@@ -842,6 +898,22 @@ ipcMain.handle("settings:signout", async (e, id) => {
 });
 ipcMain.on("settings:open-data", (e) => { if (ownPage(e)) shell.openPath(DATA); });
 ipcMain.on("home:refresh", (e) => { if (ownPage(e)) refreshDashboard(true); });
+// The Home queue's buttons (Remove asks on the page first: it also deletes the download in the client).
+ipcMain.handle("home:queue-action", async (e, { app: appId, qid, action } = {}) => {
+  if (!ownPage(e) || !dash) return null;
+  const a = appById(String(appId));
+  const item = dash.queue.find((q) => q.app === appId && String(q.qid) === String(qid));
+  if (!a || !item) return { ok: false, message: "It's not in the queue any more." };
+  if (!["remove", "blocklist", "search", "grab"].includes(action)) return null;
+  try {
+    await queueAction(a, getKey(a.id), item, action);
+    if (action !== "search") setTimeout(() => refreshDashboard(true), 1500);   // the queue changed
+    const done = { remove: "Removed.", blocklist: "Removed - looking for another release.", search: "Searching…", grab: "Sent to the download client." };
+    return { ok: true, message: done[action] };
+  } catch (err) {
+    return { ok: false, message: `Didn't work: ${err.message}` };
+  }
+});
 ipcMain.on("home:open", (e, { id, path: p } = {}) => {
   if (!ownPage(e)) return;
   closeSettings();
@@ -866,6 +938,7 @@ app.whenReady().then(() => {
   });
   createTray();
   createWindow();
+  applyStartMenu();
   applyStartWithWindows();   // keeps the sign-in entry pointing at this .exe, wherever it is now
   updater.start();
 });

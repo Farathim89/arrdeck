@@ -1,7 +1,7 @@
 {
   "name": "arrdeck",
   "productName": "ArrDeck",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "ArrDeck: Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window, with a Home dashboard and a High contrast look",
   "main": "main.js",
   "scripts": {
@@ -20,6 +20,7 @@
     "copyright": "Copyright © 2026 Farathim — GPL-3.0-or-later",
     "files": [
       "LICENSE",
+      "build/tray-alert*.png",
       "build/icon.ico",
       "main.js",
       "apps.js",

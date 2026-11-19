@@ -80,10 +80,17 @@ app.commandLine.appendSwitch("disable-blink-features", "ForcedColors");
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
-// Windows app id (taskbar button, pinning, notifications). Changed in 1.5.2: Windows had a
-// broken taskbar icon stuck on the old one (from a Start menu test entry whose .exe was gone).
-const APP_ID = "Farathim.ArrDeck";
-const OLD_APP_IDS = ["com.farathim.arrdeck"];
+// Windows app id (taskbar button, pinning, notifications). Windows remembers, per app id, which
+// .exe the taskbar icon comes from — the first time it sees the id — and keeps showing a blank
+// page once that file is gone. A portable app can run from anywhere (and test copies come and
+// go), so each ArrDeck.exe location gets its own id: "Farathim.ArrDeck.<8 hex of its path>".
+function appIdFor(exe) {
+  if (!exe) return "Farathim.ArrDeck.dev";
+  const h = require("crypto").createHash("sha1").update(path.resolve(exe).toLowerCase()).digest("hex").slice(0, 8);
+  return `Farathim.ArrDeck.${h}`;
+}
+const APP_ID = appIdFor(app.isPackaged ? (process.env.PORTABLE_EXECUTABLE_FILE || process.execPath) : null);
+const isOurAppId = (id) => typeof id === "string" && (/^Farathim\.ArrDeck(\.|$)/.test(id) || id === "com.farathim.arrdeck");
 app.setAppUserModelId(APP_ID);
 // Started by Windows at sign-in ("Start with Windows"): straight to the tray.
 const startHidden = process.argv.includes("--hidden");
@@ -198,14 +205,15 @@ const status = {};         // id -> "up" | "down" | "warn" | "error" | ""
 const wc = (id = active) => (views.get(id) ? views.get(id).view.webContents : null);
 
 // A thin border round the window (drawn by the title-bar page behind the views),
-// none when maximised or full screen.
-const framed = () => !!win && !win.isMaximized() && !win.isFullScreen();
+// none in full screen (F11).
+const framed = () => !!win && !win.isFullScreen();
 function layout() {
   if (!win) return;
   const { width, height } = win.getContentBounds();
   const top = win.isFullScreen() ? 0 : TITLE_H;
   const edge = framed() ? 1 : 0;
-  const b = { x: edge, y: top, width: Math.max(0, width - 2 * edge), height: Math.max(0, height - top - edge) };
+  // (2 at the bottom: at high display scaling the last pixels of the window can be cut off)
+  const b = { x: edge, y: top, width: Math.max(0, width - 2 * edge), height: Math.max(0, height - top - 2 * edge) };
   for (const v of views.values()) v.view.setBounds(b);
   if (settingsView) settingsView.setBounds(b);
 }
@@ -704,7 +712,7 @@ function applyStartMenu() {
     } else if (fs.existsSync(lnk)) {
       // Only remove it if it's ours.
       const d = (() => { try { return shell.readShortcutLink(lnk); } catch { return {}; } })();
-      if (d.appUserModelId === APP_ID || OLD_APP_IDS.includes(d.appUserModelId)) fs.unlinkSync(lnk);
+      if (isOurAppId(d.appUserModelId)) fs.unlinkSync(lnk);
     }
   } catch (err) { console.error("start menu", err); }
 }
@@ -834,8 +842,7 @@ ipcMain.handle("settings:move", (e, { id, dir, before } = {}) => {
   return publicSettings();
 });
 // Read the API keys from the apps' own settings files on this PC.
-ipcMain.handle("settings:find-keys", async (e) => {
-  if (!ownPage(e)) return null;
+function runFindKeys() {
   const apps = appList().filter((a) => a.kind !== "web");
   const { results, searched, files } = findKeys(apps, { exeHome, extraDirs: config.keyDirs || [] });
   const report = [];
@@ -847,7 +854,11 @@ ipcMain.handle("settings:find-keys", async (e) => {
     report.push({ id: a.id, name: a.name, status: same ? "same" : "saved", file: r.file });
   }
   if (report.some((r) => r.status === "saved")) refreshDashboard(true);
-  return { report, searched, files, settings: publicSettings() };
+  return { report, searched, files };
+}
+ipcMain.handle("settings:find-keys", async (e) => {
+  if (!ownPage(e)) return null;
+  return { ...runFindKeys(), settings: publicSettings() };
 });
 ipcMain.handle("settings:key-dir", async (e, remove) => {
   if (!ownPage(e)) return null;
@@ -1005,6 +1016,12 @@ app.whenReady().then(() => {
   });
   createTray();
   createWindow();
+  // First start without any API key: look for them by itself, once (Settings → Apps has the button).
+  if (!Object.keys(config.keys || {}).length && !config.autoKeysTried) {
+    config.autoKeysTried = true;
+    saveConfig();
+    setTimeout(() => { try { runFindKeys(); } catch (err) { console.error("find keys", err); } }, 1500);
+  }
   applyStartMenu();
   applyStartWithWindows();   // keeps the sign-in entry pointing at this .exe, wherever it is now
   updater.start();

@@ -45,7 +45,7 @@ const DEFAULTS = {
   updateCheck: true,     // look for a new ArrDeck on GitHub now and then
   custom: [],            // apps you added: { id, name, url, type }
   order: [],             // your tab order (app ids)
-  minimizeToTray: true,  // minimise = into the tray (keeps watching downloads)
+  minimizeToTray: false, // minimise = into the tray instead of the taskbar
   closeToTray: false,    // ✕ = into the tray instead of quitting
   startWithWindows: false,
   startMenu: false,      // a Start menu entry (outside ArrDeck's folder, so opt-in)
@@ -60,6 +60,14 @@ function readConfig() {
   try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) }; } catch { return { ...DEFAULTS }; }
 }
 let config = readConfig();
+// 1.5.17: minimise goes to the taskbar and ✕ quits, like any app (the tray was in the way: a
+// pinned shortcut had to start ArrDeck again to get a tray-hidden window back). Once, for
+// settings saved by older versions; the tray options can still be switched on in Settings.
+if (!config.trayDefaults2) {
+  config.minimizeToTray = false;
+  config.closeToTray = false;
+  config.trayDefaults2 = true;
+}
 let saveTimer = null;
 function saveConfig(now = false) {
   clearTimeout(saveTimer);
@@ -597,6 +605,19 @@ function saveWindowState() {
   saveConfig(true);
 }
 
+// The portable launcher (build/portable.nsi) reads this: started again while ArrDeck runs (say,
+// from a pinned shortcut while it's in the tray), it brings this window back straight away
+// instead of first unpacking the whole app again.
+const WINDOW_FILE = path.join(DATA, "window.txt");
+function rememberWindowHandle() {
+  try {
+    const h = win.getNativeWindowHandle();
+    const v = h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
+    fs.mkdirSync(DATA, { recursive: true });
+    fs.writeFileSync(WINDOW_FILE, v.toString());
+  } catch (err) { console.error("window file", err.message); }
+}
+
 function createWindow() {
   const st = windowState();
   win = new BrowserWindow({
@@ -619,6 +640,7 @@ function createWindow() {
   win.webContents.on("before-input-event", onShortcut);
   win.loadFile(path.join(__dirname, "titlebar.html"));
   win.once("ready-to-show", () => { if (!startHidden || !tray) win.show(); });
+  rememberWindowHandle();
   // ✕ quits, or goes to the tray (Settings > Window & alerts). Minimise can go to the tray too.
   win.on("close", (e) => {
     saveWindowState();
@@ -802,6 +824,13 @@ function updateTrayIcon() {
   tray.setImage(unseenAlerts ? path.join(__dirname, "build", "tray-alert.png") : ICON);
   tray.setToolTip(unseenAlerts ? `ArrDeck - ${unseenAlerts} new alert${unseenAlerts === 1 ? "" : "s"}` : "ArrDeck");
 }
+// The tray icon is only there when a tray option is on (minimise / ✕ to the tray, or starting
+// with Windows, which starts in the tray). Otherwise ArrDeck is a plain taskbar app.
+const trayWanted = () => !!(config.minimizeToTray || config.closeToTray || config.startWithWindows || startHidden);
+function syncTray() {
+  if (trayWanted() && !tray) createTray();
+  else if (!trayWanted() && tray) { tray.destroy(); tray = null; }
+}
 function createTray() {
   tray = new Tray(ICON);
   tray.setToolTip("ArrDeck");
@@ -918,7 +947,10 @@ ipcMain.handle("settings:set", (e, { key, value } = {}) => {
   } else if (key === "homeDays") {
     config.homeDays = Math.max(1, Math.min(31, Number(value) || 7));
     refreshDashboard(true);
-  } else if (["updateCheck", "minimizeToTray", "closeToTray", "notifyDownloads", "notifyHealth", "notifyRequests"].includes(key)) {
+  } else if (["minimizeToTray", "closeToTray"].includes(key)) {
+    config[key] = !!value;
+    syncTray();
+  } else if (["updateCheck", "notifyDownloads", "notifyHealth", "notifyRequests"].includes(key)) {
     config[key] = !!value;
   } else if (key === "startMenu") {
     config.startMenu = !!value;
@@ -926,6 +958,7 @@ ipcMain.handle("settings:set", (e, { key, value } = {}) => {
   } else if (key === "startWithWindows") {
     config.startWithWindows = !!value;
     applyStartWithWindows();
+    syncTray();
   } else if (key === "refreshSecs") {
     config.refreshSecs = Math.max(15, Math.min(3600, Number(value) || 60));
     startDashboard();
@@ -1134,7 +1167,7 @@ app.whenReady().then(() => {
     getWin: () => win, dataDir: DATA, getConfig: () => config, saveConfig, icon: ICON, openExternal, showWindow,
     onChange: () => { sendState(); pushSettings(); },
   });
-  createTray();
+  syncTray();
   createWindow();
   // First start without any API key: look for them by itself, once (Settings → Apps has the button).
   if (!Object.keys(config.keys || {}).length && !config.autoKeysTried) {
@@ -1147,4 +1180,5 @@ app.whenReady().then(() => {
   updater.start();
 });
 app.on("before-quit", () => { isQuitting = true; saveWindowState(); });
+app.on("will-quit", () => { try { fs.unlinkSync(WINDOW_FILE); } catch {} });
 app.on("window-all-closed", () => app.quit());

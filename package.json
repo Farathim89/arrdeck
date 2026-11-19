@@ -1,12 +1,12 @@
 {
   "name": "arrdeck",
   "productName": "ArrDeck",
-  "version": "1.5.16",
+  "version": "1.5.17",
   "description": "ArrDeck: Sonarr, Radarr, Lidarr, Prowlarr and Seerr in one window, with a Home dashboard and a High contrast look",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "node scripts/prepare-portable.js && electron-builder --win portable"
   },
   "author": "Farathim",
   "license": "GPL-3.0-or-later",

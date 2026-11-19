@@ -108,3 +108,30 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: va
 .switch button + button { border-left: 1px solid var(--fg); }
 .switch button.active { background: var(--gold); color: #000; }
 .switch .n { font-size: 11px; color: inherit; opacity: .8; }
+
+/* Missing: folder-style lines (app → show → episodes) */
+.fbox { padding: 0; }
+.fline { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 12px; align-items: center; padding: 10px 16px; cursor: pointer; }
+.fline:hover { background: #111; }
+.fline:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.fline.app { grid-template-columns: 22px auto 1fr auto; font-size: 16px; }
+.fline.app.empty { cursor: default; }
+.fline.app.empty .chev { visibility: hidden; }
+.fline.open.app { border-bottom: 1px solid var(--fg); }
+.chev { color: var(--gold); font-size: 14px; text-align: center; }
+.aname { font-weight: 700; border-left: 4px solid; padding-left: 8px; }
+.gcount { color: var(--dim); font-size: 13px; }
+.fline.app .gcount { color: var(--fg); }
+.fline.group { border-top: 1px solid var(--soft); }
+.gname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fline.group:hover .gname { color: var(--gold); }
+.gdate { color: var(--dim); font-size: 12px; white-space: nowrap; }
+.fline .qactions { grid-column: auto; margin: 0; justify-content: flex-end; }
+.fbody { padding: 0 0 6px; }
+.fbody > .mitem, .ginner .mitem { padding-left: 50px; padding-right: 16px; }
+.ginner { background: #0a0a0a; border-top: 1px solid var(--soft); }
+.ginner .mitem { border-top: 1px solid #222; padding-left: 50px; }
+.fbody > .empty, .fbody > .note { padding: 8px 16px; }
+.qbtn.link { border-color: transparent; color: var(--dim); }
+.qbtn.link:hover { color: var(--gold); border-color: var(--gold); }
+.empty.bad { color: var(--bad); }

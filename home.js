@@ -218,33 +218,42 @@ function renderCalendar(box, limit) {
 
 // ---- missing & cutoff unmet ----------------------------------------------------------------
 // The Missing tab shows one of two lists (the switch at its top): Missing, or Cutoff unmet
-// (have it, but not in the quality the profile wants yet). One box per app, newest first,
-// "Search all …" per app (asks first), "Search" per item.
+// (have it, but not in the quality the profile wants yet). Folder-style, so it stays tidy:
+// one closed line per app → click: one line per show / artist / author (movies: the movies)
+// → click: its episodes / albums / books. The full list is fetched when you open an app.
 const LISTS = {
-  missing: { items: () => data.wanted || [], total: (a) => a.missing || 0, word: "missing", none: "Nothing missing.", page: "Wanted → Missing" },
-  cutoff: { items: () => data.cutoff || [], total: (a) => a.cutoffTotal || 0, word: "below cutoff", none: "Everything meets its cutoff.", page: "Wanted → Cutoff Unmet" },
+  missing: { total: (a) => a.missing || 0, word: "missing", none: "Nothing missing.", all: "Search all missing…" },
+  cutoff: { total: (a) => a.cutoffTotal || 0, word: "below cutoff", none: "Everything meets its cutoff.", all: "Search all below cutoff…" },
 };
+const UNIT = { series: ["episode", "episodes"], album: ["album", "albums"], book: ["book", "books"], movie: ["movie", "movies"] };
 let wantedView = "missing";
 try { if (localStorage.getItem("wantedView") === "cutoff") wantedView = "cutoff"; } catch {}
+const openApps = new Set();     // "list|app" that are open
+const openGroups = new Set();   // "list|app|group" that are open
+const fullLists = new Map();    // "list|app" -> { total, items } | { loading } | { error }
 document.querySelectorAll("#wantedSwitch button").forEach((b) => b.addEventListener("click", () => {
   wantedView = b.dataset.view;
   try { localStorage.setItem("wantedView", wantedView); } catch {}
   if (data) renderMissing();
 }));
+const fmtDate = (w) => (w ? new Date(w).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
+const plural = (n, [one, many]) => `${n} ${n === 1 ? one : many}`;
+const mediaKey = (w) => JSON.stringify(w.media || {});
+
 function missingButton(label, run, cls = "") {
   const b = el("button", "qbtn" + cls, label);
   b.type = "button";
   b.addEventListener("click", async (e) => {
-    e.stopPropagation();
+    e.stopPropagation();   // not the line's open / close
     await run(b);
   });
   return b;
 }
-async function runSearch(bar, note, appId, key, all, list) {
+async function runSearch(bar, note, appId, keys, all, list) {
   bar.querySelectorAll("button").forEach((x) => (x.disabled = true));
   note.textContent = "…";
   note.className = "qnote";
-  const r = await deck.searchMissing(appId, key, all, list);
+  const r = await deck.searchMissing(appId, keys, all, list);
   bar.querySelectorAll("button").forEach((x) => (x.disabled = false));
   if (!r) { note.textContent = ""; return; }
   note.textContent = r.message;
@@ -254,14 +263,82 @@ function searchAllBar(a, list) {
   const L = LISTS[list];
   const bar = el("div", "qactions");
   const note = el("span", "qnote");
-  bar.append(missingButton(list === "cutoff" ? "Search all below cutoff…" : "Search all missing…", () => {
+  bar.append(note, missingButton(L.all, () => {
     bar.textContent = "";
     bar.classList.add("asking");
     bar.append(el("span", "qask", `Search your indexers for all ${L.total(a)} ${L.word} in ${a.name}? It can take a while.`));
     bar.append(missingButton("Search all", () => runSearch(bar, note, a.id, null, true, list), " go"));
     bar.append(missingButton("Cancel", () => bar.replaceWith(searchAllBar(a, list))), note);
-  }), note);
+  }));
   return bar;
+}
+// A line that opens / closes: ▸ / ▾, its text, then whatever is on the right.
+function folderLine(cls, open, onToggle, ...parts) {
+  const line = el("div", "fline " + cls + (open ? " open" : ""));
+  line.append(el("span", "chev", open ? "▾" : "▸"), ...parts);
+  line.tabIndex = 0;
+  line.addEventListener("click", onToggle);
+  line.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } });
+  return line;
+}
+// Open an app's list: fetch it (once, again when its count changes or on Refresh).
+async function loadList(a, list) {
+  const k = `${list}|${a.id}`;
+  fullLists.set(k, { loading: true });
+  renderMissing();
+  const r = await deck.wantedList(a.id, list);
+  fullLists.set(k, r && r.ok ? { total: r.total, items: r.items } : { error: (r && r.message) || "Couldn't read the list." });
+  renderMissing();
+}
+function itemRow(a, w, list, sub) {
+  const row = el("div", "item mitem");
+  const mid = el("div");
+  mid.style.minWidth = "0";
+  mid.append(el("div", "title", sub ? w.sub || w.title : w.title));
+  if (!sub && w.sub) mid.append(el("div", "sub", w.sub));
+  const right = el("div", "right", fmtDate(w.when));
+  const bar = el("div", "qactions");
+  const note = el("span", "qnote");
+  bar.append(note, missingButton("Search", () => runSearch(bar, note, a.id, [mediaKey(w)], false, list)));
+  const open = el("button", "qbtn link", "Open");
+  open.type = "button";
+  open.title = `Open it in ${a.name}`;
+  open.addEventListener("click", (e) => { e.stopPropagation(); deck.open(a.id, w.link); });
+  bar.append(open);
+  row.append(mid, right, bar);
+  return row;
+}
+function renderAppList(a, list, body) {
+  const k = `${list}|${a.id}`;
+  const got = fullLists.get(k);
+  if (!got || (got.items && got.total !== LISTS[list].total(a))) { loadList(a, list); return; }
+  if (got.loading) { body.appendChild(el("div", "empty", "Loading…")); return; }
+  if (got.error) { body.appendChild(el("div", "empty bad", got.error)); return; }
+  const unit = UNIT[a.media] || UNIT.movie;
+  // Movies: one line each. Others: one line per show / artist / author, newest first.
+  if (a.media === "movie") { got.items.forEach((w) => body.appendChild(itemRow(a, w, list, false))); return; }
+  const groups = new Map();
+  for (const w of got.items) {
+    if (!groups.has(w.title)) groups.set(w.title, []);
+    groups.get(w.title).push(w);
+  }
+  const sorted = [...groups.entries()].sort((x, y) => new Date(y[1][0].when || 0) - new Date(x[1][0].when || 0));
+  for (const [title, items] of sorted) {
+    const gk = `${k}|${title}`;
+    const open = openGroups.has(gk);
+    const bar = el("div", "qactions");
+    const note = el("span", "qnote");
+    bar.append(note, missingButton(items.length > 1 ? `Search these ${items.length}` : "Search", () => runSearch(bar, note, a.id, items.map(mediaKey), false, list)));
+    const line = folderLine("group", open, () => { if (openGroups.has(gk)) openGroups.delete(gk); else openGroups.add(gk); renderMissing(); },
+      el("span", "gname", title), el("span", "gcount", plural(items.length, unit)), el("span", "gdate", `newest ${fmtDate(items[0].when)}`), bar);
+    body.appendChild(line);
+    if (open) {
+      const inner = el("div", "ginner");
+      items.forEach((w) => inner.appendChild(itemRow(a, w, list, true)));
+      body.appendChild(inner);
+    }
+  }
+  if (got.total > got.items.length) body.appendChild(el("p", "note more", `Showing ${got.items.length} of ${got.total}; the rest are in ${a.name}: Wanted.`));
 }
 function renderMissing() {
   const list = wantedView;
@@ -274,35 +351,31 @@ function renderMissing() {
     if (c) c.textContent = n ? String(n) : "";
   }
   const box = $("missing");
+  const scroll = window.scrollY;
   box.textContent = "";
   if (!apps.length) { box.appendChild(el("div", "empty", "Needs the apps' API keys (Settings → Apps → Find my API keys).")); return; }
   for (const a of apps) {
     const total = L.total(a);
-    const sec = el("section", "box");
-    const h = el("h2", null, `${a.name} `);
-    h.appendChild(el("span", "count", total ? `(${total} ${L.word})` : ""));
-    sec.appendChild(h);
-    const items = L.items().filter((w) => w.app === a.id);
-    if (!total) { sec.appendChild(el("div", "empty", L.none)); box.appendChild(sec); continue; }
-    sec.appendChild(searchAllBar(a, list));
-    for (const w of items) {
-      const row = el("div", "item mitem");
-      const mid = el("div");
-      mid.style.minWidth = "0";
-      mid.append(el("div", "title", w.title), el("div", "sub", w.sub || ""));
-      const right = el("div", "right");
-      if (w.when) right.append(new Date(w.when).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }));
-      const bar = el("div", "qactions");
-      const note = el("span", "qnote");
-      bar.append(note, missingButton("Search", () => runSearch(bar, note, a.id, JSON.stringify(w.media || {}), false, list)));
-      row.append(mid, right, bar);
-      row.addEventListener("click", () => deck.open(a.id, w.link));
-      sec.appendChild(row);
+    const k = `${list}|${a.id}`;
+    const open = openApps.has(k) && total > 0;
+    const sec = el("section", "box fbox");
+    const name = el("span", "aname", a.name);
+    name.style.borderColor = a.color;
+    const right = total ? searchAllBar(a, list) : el("span");
+    sec.appendChild(folderLine("app" + (total ? "" : " empty"), open,
+      () => { if (!total) return; if (openApps.has(k)) openApps.delete(k); else openApps.add(k); renderMissing(); },
+      name, el("span", "gcount", total ? `${total} ${L.word}` : L.none), right));
+    if (open) {
+      const body = el("div", "fbody");
+      renderAppList(a, list, body);
+      sec.appendChild(body);
     }
-    if (total > items.length) sec.appendChild(el("p", "note more", `Showing the newest ${items.length} of ${total}. All of them are in ${a.name}: ${L.page}.`));
     box.appendChild(sec);
   }
+  window.scrollTo(0, scroll);
 }
+// Refresh also re-reads the open lists.
+$("refresh").addEventListener("click", () => { fullLists.clear(); });
 
 // ---- health --------------------------------------------------------------------------------
 function renderHealth(box, limit) {

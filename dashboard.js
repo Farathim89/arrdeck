@@ -90,7 +90,9 @@ const WANTED = {
   album: { inc: "&includeArtist=true", sort: "releaseDate", all: "MissingAlbumSearch", cutoffAll: "CutoffUnmetAlbumSearch" },
   book: { inc: "&includeAuthor=true", sort: "releaseDate", all: "MissingBookSearch", cutoffAll: "CutoffUnmetBookSearch" },
 };
-const MISSING_PAGE = 50;
+// The 60-second refresh only reads the counts (1 per page); the Missing tab asks for the
+// whole list (up to FULL_LIST) when you open an app.
+const FULL_LIST = 2000;
 function wantedItem(app, r, list = "missing") {
   const item = wantedItemOf(app, r);
   if (item.link === "/wanted/missing") item.link = `/wanted/${list === "cutoff" ? "cutoffunmet" : "missing"}`;
@@ -113,10 +115,10 @@ function wantedItemOf(app, r) {
   return { app: app.id, title: (r.author && r.author.authorName) || "?", sub: r.title || "", when: r.releaseDate || "",
     media: { bookId: r.id }, link: "/wanted/missing" };
 }
-async function fetchWanted(app, key, list = "missing") {
+async function fetchWanted(app, key, list = "missing", pageSize = 1) {
   const w = WANTED[app.media];
   if (!w) return { total: 0, items: [] };
-  const base = `/wanted/${list === "cutoff" ? "cutoff" : "missing"}?page=1&pageSize=${MISSING_PAGE}&monitored=true${w.inc}`;
+  const base = `/wanted/${list === "cutoff" ? "cutoff" : "missing"}?page=1&pageSize=${pageSize}&monitored=true${pageSize > 1 ? w.inc : ""}`;
   let r = null;
   try {
     r = await get(app, key, base + (w.sort ? `&sortKey=${w.sort}&sortDirection=descending` : ""));
@@ -129,16 +131,20 @@ async function fetchWanted(app, key, list = "missing") {
   items.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));   // newest first within the page
   return { total: Number(r.totalRecords) || items.length, items };
 }
-// Search one item, or (item = null) everything the app has missing / below cutoff.
-async function searchMissing(app, key, item, list = "missing") {
+// Search some items (one episode, or all of a show's), or (items = null) everything the app
+// has missing / below cutoff.
+async function searchMissing(app, key, items, list = "missing") {
   if (!key) throw new Error(`no API key for ${app.name}`);
-  if (!item) {
+  if (!items) {
     const w = WANTED[app.media];
     if (!w) throw new Error("nothing to search for");
     return send(app, key, "POST", "/command", { name: list === "cutoff" ? w.cutoffAll : w.all });
   }
-  const body = searchBody(item.media);
-  if (!body) throw new Error("nothing to search for");
+  // One command for all of them: EpisodeSearch with every episode id, and so on.
+  const bodies = items.map((i) => searchBody(i.media)).filter(Boolean);
+  if (!bodies.length) throw new Error("nothing to search for");
+  const body = { name: bodies[0].name };
+  for (const k of Object.keys(bodies[0]).filter((x) => x !== "name")) body[k] = bodies.flatMap((b) => b[k] || []);
   return send(app, key, "POST", "/command", body);
 }
 
@@ -242,7 +248,7 @@ function calendarItems(app, list, start, end) {
 
 // One app's part of the dashboard. Never throws: problems end up in `state`.
 async function fetchApp(app, key, days) {
-  const res = { id: app.id, name: app.name, kind: app.kind, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], wanted: [], missing: 0, cutoff: [], cutoffTotal: 0, badges: null };
+  const res = { id: app.id, name: app.name, kind: app.kind, media: app.media || null, hasQueue: !!app.media, up: false, state: "", version: "", queue: [], calendar: [], health: [], requests: null, pending: [], recent: [], wanted: [], missing: 0, cutoff: [], cutoffTotal: 0, badges: null };
   res.up = await isUp(app);
   if (!res.up) { res.state = "down"; return res; }
   if (app.kind === "web") { res.state = "ok"; return res; }   // a plain web page: no API
@@ -265,8 +271,8 @@ async function fetchApp(app, key, days) {
         jobs.push(get(app, key, `/calendar?start=${iso(start)}&end=${iso(end)}&unmonitored=false${calInc}`).then((c) => {
           res.calendar = calendarItems(app, Array.isArray(c) ? c : [], start, end);
         }));
-        jobs.push(fetchWanted(app, key).then((w) => { res.wanted = w.items; res.missing = w.total; }).catch(() => {}));
-        jobs.push(fetchWanted(app, key, "cutoff").then((w) => { res.cutoff = w.items; res.cutoffTotal = w.total; }).catch(() => {}));
+        jobs.push(fetchWanted(app, key).then((w) => { res.missing = w.total; }).catch(() => {}));
+        jobs.push(fetchWanted(app, key, "cutoff").then((w) => { res.cutoffTotal = w.total; }).catch(() => {}));
       }
       await Promise.all(jobs);
     } else if (app.kind === "seerr") {
@@ -311,4 +317,4 @@ async function fetchDashboard(apps, keyFor, days) {
   };
 }
 
-module.exports = { fetchDashboard, isUp, queueAction, requestAction, searchMissing };
+module.exports = { fetchDashboard, isUp, queueAction, requestAction, searchMissing, fetchWanted, FULL_LIST };

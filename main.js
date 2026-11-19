@@ -16,7 +16,7 @@ const {
 const path = require("path");
 const fs = require("fs");
 const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
-const { fetchDashboard, isUp, queueAction, requestAction, searchMissing } = require("./dashboard");
+const { fetchDashboard, isUp, queueAction, requestAction, searchMissing, fetchWanted, FULL_LIST } = require("./dashboard");
 const createUpdater = require("./update");
 const { findKeys } = require("./keyfinder");
 
@@ -924,20 +924,41 @@ ipcMain.handle("home:queue-action", async (e, { app: appId, qid, action } = {}) 
     return { ok: false, message: `Didn't work: ${err.message}` };
   }
 });
-// Missing on Home: search one item, or everything an app has missing.
-ipcMain.handle("home:missing-search", async (e, { app: appId, key: itemKey, all, list } = {}) => {
-  if (!ownPage(e) || !dash) return null;
+// Missing / Cutoff unmet on Home. The tab asks for an app's whole list when you open it;
+// it's kept here too, so the Search buttons can only search what's really on it.
+const wantedLists = new Map();   // "appId|list" -> items
+ipcMain.handle("home:wanted-list", async (e, { app: appId, list } = {}) => {
+  if (!ownPage(e)) return null;
   const a = appById(String(appId));
   if (!a) return null;
   list = list === "cutoff" ? "cutoff" : "missing";
-  const mk = (m) => JSON.stringify(m || {});
-  const item = all ? null : (dash[list === "cutoff" ? "cutoff" : "wanted"] || []).find((w) => w.app === appId && mk(w.media) === itemKey);
-  if (!all && !item) return { ok: false, message: "It's not on the list any more." };
   try {
-    await searchMissing(a, getKey(a.id), item, list);
-    const p = dash.apps.find((x) => x.id === a.id);
+    const r = await fetchWanted(a, getKey(a.id), list, FULL_LIST);
+    wantedLists.set(`${a.id}|${list}`, r.items);
+    return { ok: true, total: r.total, items: r.items };
+  } catch (err) {
+    return { ok: false, message: `Couldn't read the list: ${err.message}` };
+  }
+});
+// Search some of them (one episode, or all of a show's), or (all) everything on the app's list.
+ipcMain.handle("home:missing-search", async (e, { app: appId, keys, all, list } = {}) => {
+  if (!ownPage(e)) return null;
+  const a = appById(String(appId));
+  if (!a) return null;
+  list = list === "cutoff" ? "cutoff" : "missing";
+  let items = null;
+  if (!all) {
+    const mine = wantedLists.get(`${a.id}|${list}`) || [];
+    const wanted = new Set(Array.isArray(keys) ? keys.map(String) : []);
+    items = mine.filter((w) => wanted.has(JSON.stringify(w.media || {})));
+    if (!items.length) return { ok: false, message: "It's not on the list any more." };
+  }
+  try {
+    await searchMissing(a, getKey(a.id), items, list);
+    const p = dash && dash.apps.find((x) => x.id === a.id);
     const n = p ? (list === "cutoff" ? p.cutoffTotal : p.missing) : 0;
-    return { ok: true, message: all ? `${a.name} is searching for all ${n ? n + " " : ""}${list === "cutoff" ? "below cutoff" : "missing"}.` : "Searching…" };
+    const what = list === "cutoff" ? "below cutoff" : "missing";
+    return { ok: true, message: all ? `${a.name} is searching for all ${n ? n + " " : ""}${what}.` : items.length > 1 ? `Searching for ${items.length}…` : "Searching…" };
   } catch (err) {
     return { ok: false, message: `Didn't work: ${err.message}` };
   }

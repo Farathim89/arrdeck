@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld("arrdeck", {
   open: (id, path) => ipcRenderer.send("home:open", { id, path }),
   queueAction: (app, qid, action) => ipcRenderer.invoke("home:queue-action", { app, qid, action }),
   requestAction: (app, id, action) => ipcRenderer.invoke("home:request-action", { app, id, action }),
-  searchMissing: (app, key, all, list) => ipcRenderer.invoke("home:missing-search", { app, key, all: !!all, list }),
+  wantedList: (app, list) => ipcRenderer.invoke("home:wanted-list", { app, list }),
+  searchMissing: (app, keys, all, list) => ipcRenderer.invoke("home:missing-search", { app, keys, all: !!all, list }),
   openExternal: (url) => ipcRenderer.send("open-external", url),
 });

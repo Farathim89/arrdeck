@@ -13,7 +13,7 @@ const APPS = [
   { id: "jellyseerr", name: "Jellyseerr", url: "http://127.0.0.1:5056", kind: "seerr",  media: null,     on: false, color: "#a855f7" },
   // plain tabs (no dashboard): their own pages only (Cleanuparr with its own High contrast style)
   { id: "cleanuparr", name: "Cleanuparr", url: "http://127.0.0.1:11011", kind: "web",  media: null,     on: false, color: "#2dd4bf", style: "cleanuparr-high-contrast.user.css" },
-  { id: "qbittorrent", name: "qBittorrent", url: "http://127.0.0.1:8080", kind: "web", media: null,     on: false, color: "#3b82f6" },
+  { id: "qbittorrent", name: "qBittorrent", url: "http://127.0.0.1:8080", kind: "web", media: null,     on: false, color: "#3b82f6", style: "qbittorrent-high-contrast.user.css" },
 ];
 
 // Which High contrast style file each kind gets (custom "web" pages get none).

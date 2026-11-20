@@ -218,6 +218,111 @@ const status = {};         // id -> "up" | "down" | "warn" | "error" | ""
 
 const wc = (id = active) => (views.get(id) ? views.get(id).view.webContents : null);
 
+// ---- keeping the tabs drawn ----------------------------------------------------
+// After a long time minimised, a tab could come back black: its page process gone or hung, or its
+// picture dropped and never drawn again. ArrDeck now notices and repairs that on its own, and writes
+// what happened to ArrDeck-data\arrdeck.log (kept small).
+const LOG_FILE = path.join(DATA, "arrdeck.log");
+function logEvent(msg) {
+  try {
+    fs.mkdirSync(DATA, { recursive: true });
+    if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > 256 * 1024) fs.renameSync(LOG_FILE, LOG_FILE + ".old");
+    fs.appendFileSync(LOG_FILE, `${new Date().toISOString()}  ${msg}\n`);
+  } catch {}
+}
+const onScreen = () => !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized();
+
+// A tab's page process died or hangs: start it again (now if it's showing, else when it's shown).
+function watchView(entry, id) {
+  const c = entry.view.webContents;
+  c.on("render-process-gone", (_e, d) => {
+    logEvent(`${id}: page process gone (${d.reason}, exit code ${d.exitCode})`);
+    entry.dead = true;
+    if (id === active && onScreen()) reviveView(id);
+  });
+  c.on("unresponsive", () => { if (!entry.hung) logEvent(`${id}: page not responding`); entry.hung = entry.hung || Date.now(); });
+  c.on("responsive", () => { if (entry.hung) logEvent(`${id}: page responding again`); entry.hung = 0; });
+}
+function reviveView(id) {
+  const entry = views.get(id);
+  if (!entry) return;
+  const c = entry.view.webContents;
+  if (entry.hung && !entry.dead) { try { c.forcefullyCrashRenderer(); } catch {} }
+  entry.dead = false; entry.hung = 0;
+  logEvent(`${id}: reloading the tab`);
+  if (entry.app) {
+    const url = c.getURL();
+    loadApp(entry, sameOrigin(url, entry.app.url) ? url : undefined);
+  } else c.reload();
+}
+// Make the tab draw itself again: take it off the window and put it back (a new picture), and repaint.
+function redraw(entry) {
+  const b = entry.view.getBounds();
+  win.contentView.removeChildView(entry.view);
+  win.contentView.addChildView(entry.view);
+  if (settingsView) win.contentView.addChildView(settingsView);   // keep on top
+  entry.view.setBounds({ ...b, height: Math.max(0, b.height - 1) });
+  entry.view.setBounds(b);
+  entry.view.setVisible(true);
+  try { entry.view.webContents.invalidate(); } catch {}
+}
+// Last resort, and what F5 does: a brand-new view for the tab, at the page it was on (what a restart of
+// ArrDeck does for every tab). The sign-in stays: it lives in the tab's saved session, not in the view.
+function rebuildView(id) {
+  const old = views.get(id);
+  if (!old || !win) return;
+  logEvent(`${id}: building the tab anew`);
+  const url = old.app ? old.view.webContents.getURL() : null;
+  clearInterval(old.retry);
+  win.contentView.removeChildView(old.view);
+  views.delete(id);
+  if (id === "home") createHomeView(); else createAppView(old.app);
+  const entry = views.get(id);
+  if (settingsView) win.contentView.addChildView(settingsView);   // keep on top
+  layout();
+  entry.view.setVisible(id === active);
+  if (entry.app && old.loaded) loadApp(entry, url && sameOrigin(url, entry.app.url) ? url : undefined);
+  try { old.view.webContents.close(); } catch {}
+  if (id === active && !settingsView) entry.view.webContents.focus();
+}
+// Is there anything on the tab's picture? (all one colour, or no picture at all = blank)
+async function looksBlank(entry) {
+  try {
+    const img = await Promise.race([entry.view.webContents.capturePage(), new Promise((r) => setTimeout(() => r(null), 4000))]);
+    if (!img || img.isEmpty()) return true;
+    const small = img.resize({ width: 48 });
+    const px = small.toBitmap();
+    for (let i = 4; i < px.length; i += 4) {
+      if (Math.abs(px[i] - px[0]) + Math.abs(px[i + 1] - px[1]) + Math.abs(px[i + 2] - px[2]) > 24) return false;
+    }
+    return true;
+  } catch { return true; }
+}
+// Back on screen (restored, shown, focused): check the tab that shows.
+let drawCheck = null;
+function checkDrawn(why) {
+  clearTimeout(drawCheck);
+  drawCheck = setTimeout(async () => {
+    if (!onScreen() || settingsView) return;
+    const id = active, entry = views.get(id);
+    if (!entry) return;
+    const c = entry.view.webContents;
+    if (entry.dead || c.isCrashed()) { logEvent(`${id}: found dead after ${why}`); return reviveView(id); }
+    if (entry.hung && Date.now() - entry.hung > 5000) { logEvent(`${id}: found hanging after ${why}`); return reviveView(id); }
+    if (/restore|show|graphics/.test(why)) {
+      redraw(entry);
+      if (win.isFocused() && !settingsView) c.focus();
+    }
+    if (entry.failed || c.isLoading()) return;
+    await new Promise((r) => setTimeout(r, 700));
+    if (id !== active || !onScreen() || views.get(id) !== entry) return;
+    if (await looksBlank(entry)) {
+      logEvent(`${id}: blank after ${why}`);
+      rebuildView(id);
+    }
+  }, 400);
+}
+
 // A thin border round the window (drawn by the title-bar page behind the views),
 // none in full screen (F11).
 const framed = () => !!win && !win.isFullScreen();
@@ -376,6 +481,7 @@ function createAppView(a) {
   c.setZoomLevel(config.zoom[a.id] || 0);
   c.on("dom-ready", () => applyCss(entry));
   ignoreWindowsTheme(c);
+  watchView(entry, a.id);
   c.on("before-input-event", onShortcut);
   c.on("did-fail-load", (_e, code, desc, url, isMain) => {
     if (!isMain || code === -3) return;   // -3 = aborted (normal)
@@ -439,6 +545,7 @@ function createHomeView() {
   view.setVisible(false);
   const entry = { view, app: null, loaded: true, failed: false, css: [] };
   ignoreWindowsTheme(view.webContents);
+  watchView(entry, "home");
   view.webContents.on("before-input-event", onShortcut);
   view.webContents.on("will-navigate", (e) => e.preventDefault());
   view.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: "deny" }; });
@@ -482,6 +589,8 @@ function select(id) {
   for (const [vid, entry] of views) entry.view.setVisible(vid === id);
   const entry = views.get(id);
   if (entry.app && !entry.loaded) loadApp(entry);
+  else if (entry.dead) reviveView(id);
+  else checkDrawn("tab switch");
   if (!settingsView) entry.view.webContents.focus();
   if (id === "home") refreshDashboard();
   sendState();
@@ -512,9 +621,11 @@ function navAction(action) {
   if (action === "back" && c.navigationHistory.canGoBack()) c.navigationHistory.goBack();
   else if (action === "forward" && c.navigationHistory.canGoForward()) c.navigationHistory.goForward();
   else if (action === "reload") {
-    if (!entry.app) refreshDashboard(true);
+    // F5 / the reload button build the tab anew (like restarting ArrDeck, for this tab only; you stay
+    // signed in): a plain page reload doesn't help a tab that has stopped being drawn.
+    if (!entry.app) { rebuildView("home"); refreshDashboard(true); }
     else if (entry.failed || !entry.loaded) loadApp(entry);
-    else c.reload();
+    else rebuildView(active);
   } else if (action === "home" && entry.app) loadApp(entry, entry.app.url);
 }
 
@@ -653,6 +764,9 @@ function createWindow() {
   });
   win.on("focus", () => { win.webContents.send("focus", true); markAlertsSeen(); if (updater) updater.checkIfStale(); if (!settingsView && wc()) wc().focus(); });
   win.on("blur", () => win.webContents.send("focus", false));
+  win.on("restore", () => checkDrawn("restore"));
+  win.on("show", () => checkDrawn("show"));
+  win.on("focus", () => checkDrawn("focus"));
   for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) win.on(ev, () => { layout(); sendState(); });
   win.on("app-command", (_e, cmd) => {
     if (cmd === "browser-backward") navAction("back");
@@ -1179,6 +1293,12 @@ app.whenReady().then(() => {
   applyStartWithWindows();   // keeps the sign-in entry pointing at this .exe, wherever it is now
   updater.start();
 });
+// The helper processes (graphics, network...): note when one goes, and redraw after a graphics restart.
+app.on("child-process-gone", (_e, d) => {
+  logEvent(`${d.type} process gone (${d.reason}, exit code ${d.exitCode})`);
+  if (d.type === "GPU") setTimeout(() => checkDrawn("graphics restart"), 1500);
+});
+app.on("render-process-gone", (_e, c, d) => { if (win && c === win.webContents) logEvent(`title bar page gone (${d.reason})`); });
 app.on("before-quit", () => { isQuitting = true; saveWindowState(); });
 app.on("will-quit", () => { try { fs.unlinkSync(WINDOW_FILE); } catch {} });
 app.on("window-all-closed", () => app.quit());

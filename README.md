@@ -38,7 +38,7 @@ Get `ArrDeck.exe` from the [latest release](https://github.com/Farathim89/arrdec
 | --- | --- |
 | Ctrl+1 … Ctrl+9 | Go to tab 1 … 9 |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
-| F5 or Ctrl+R | Reload |
+| F5 or Ctrl+R | Reload (builds the tab anew, like restarting ArrDeck for that tab; you stay signed in) |
 | Alt+Left / Alt+Right (mouse side buttons) | Back / forward |
 | Alt+Home | The app's start page |
 | Ctrl + / Ctrl - / Ctrl 0 | Zoom |

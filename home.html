@@ -24,6 +24,7 @@
         <button type="button" data-tab="health">Health <span class="n" data-n="health"></span></button>
         <button type="button" data-tab="requests" id="requestsTab">Requests <span class="n" data-n="requests"></span></button>
         <button type="button" data-tab="alerts">Alerts <span class="n" data-n="alerts"></span></button>
+        <button type="button" data-tab="server" id="serverTab" class="hidden">Server <span class="n" data-n="server"></span></button>
       </nav>
 
       <section class="pane" id="p-overview">
@@ -77,6 +78,14 @@
           <h2>Recent alerts <span class="count" data-count="alerts"></span></h2>
           <p class="note">Downloads that finished, new health warnings and errors, apps that stopped answering and new requests, since ArrDeck started (Settings → Window &amp; alerts).</p>
           <div id="alerts"></div>
+        </section>
+      </section>
+      <section class="pane" id="p-server">
+        <section class="box">
+          <h2>Server <span class="count" data-count="server"></span></h2>
+          <p class="note">The apps of your Arr server folder, running on this PC (<span id="serverDir"></span>). Start and Stop use that folder's own start-all and stop-all scripts.</p>
+          <div class="srvbar" id="srvbar"></div>
+          <div id="server"></div>
         </section>
       </section>
     </main>

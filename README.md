@@ -6,7 +6,7 @@
 
 ## Features
 
-- **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr and Jellyseerr one switch away. Every tab shows its app's own icon with a status dot: green running, amber warnings, red errors or not answering.
+- **One window, a tab per app.** Sonarr, Radarr, Lidarr, Prowlarr and Seerr out of the box; Readarr, Bazarr, Jellyseerr, Cleanuparr and qBittorrent one switch away. Every tab shows its app's own icon with a status dot: green running, amber warnings, red errors or not answering.
 - **Your sign-ins stay.** Every app has its own saved session: sign in once in its tab and ArrDeck remembers it. Each app also remembers the page you were on and its own zoom.
 - **Home dashboard.** Sub-tabs for an Overview and the full Downloads (with progress and import problems), Coming up (episodes, movies, albums), Missing, Health, Requests and Alerts lists — from every app at once. Click anything to jump to it in its app.
 - **Missing and Cutoff unmet on Home.** Each app's Wanted → Missing and Wanted → Cutoff Unmet (have it, but not in the quality you want yet), folder-style: click an app, then a show, to see its episodes. Search one, Search all of a show, or Search all per app (asks first).
@@ -16,6 +16,7 @@
 - **Finds your API keys.** *Find my API keys* reads them from the apps' own settings files on this PC (`config.xml`, Seerr's `settings.json`, Bazarr's `config.yaml` — Windows installs or a Docker `appdata` folder) and matches them to your tabs by app and port. No copy-pasting.
 - **Tray and alerts.** Minimise (or ✕) to the tray, start with Windows, pin it to the taskbar. Alerts when a download is done, a new health warning or error shows up, or an app stops answering: on Home (Recent alerts), as a red dot on the tray icon, and as Windows notifications (with the optional Start menu entry).
 - **Queue buttons on Home.** Search again, Grab now (skip a delay) and Remove — or Remove and find another (blocklists the release) — right from the dashboard.
+- **Server tab on Home (optional).** Run your apps on Windows from an *Arr server* folder (with `start-all.ps1`, `stop-all.ps1` and `status.ps1`) next to ArrDeck's folder? Home gets a Server tab: which apps run, Start / Stop each, Start all / Stop all.
 - **Your own tabs, your order.** Add a second Sonarr / Radarr (anime, 4K…) with the dashboard and the look, or any local web app (qBittorrent, SABnzbd, Tautulli…) as a plain tab. Drag tabs to reorder them, rename any tab.
 - **Fully portable.** One `ArrDeck.exe`; settings and sign-ins live in `ArrDeck-data` next to it. No installer, nothing in AppData (unless you switch on the optional Start menu entry).
 - **Updates itself.** When a new version is out, the title bar shows *Update x.y.z*: one click downloads it, checks its SHA-256 and swaps the .exe. Nothing installs without a click.

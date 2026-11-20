@@ -19,6 +19,7 @@ const { APPS, STYLE_FOR_KIND, TYPES, CUSTOM_COLORS } = require("./apps");
 const { fetchDashboard, isUp, queueAction, requestAction, searchMissing, fetchWanted, FULL_LIST } = require("./dashboard");
 const createUpdater = require("./update");
 const { findKeys } = require("./keyfinder");
+const { findServerDir, serverStatus, runServer } = require("./server");
 
 // ---- data folder -----------------------------------------------------------
 // Fully portable: settings and sign-ins live in "ArrDeck-data" next to ArrDeck.exe
@@ -1205,6 +1206,25 @@ ipcMain.handle("home:queue-action", async (e, { app: appId, qid, action } = {}) 
     return { ok: false, message: `Didn't work: ${err.message}` };
   }
 });
+// Home > Server: the apps of an "Arr server" folder (see server.js), and starting / stopping them.
+const serverDir = () => findServerDir(exeHome, config.serverDir);
+ipcMain.handle("home:server", async (e) => {
+  if (!ownPage(e)) return null;
+  const dir = serverDir();
+  if (!dir) return { dir: null };
+  try { return { dir, apps: await serverStatus(dir) }; } catch (err) { return { dir, apps: [], message: `Couldn't read the status: ${err.message}` }; }
+});
+ipcMain.handle("home:server-action", async (e, { action, ids } = {}) => {
+  if (!ownPage(e)) return null;
+  const dir = serverDir();
+  if (!dir || !["start", "stop"].includes(action)) return { ok: false, message: "No Arr server folder found." };
+  try {
+    runServer(dir, action, Array.isArray(ids) ? ids.map(String) : []);
+    logEvent(`server: ${action} ${Array.isArray(ids) && ids.length ? ids.join(",") : "all"}`);
+    return { ok: true };
+  } catch (err) { return { ok: false, message: err.message }; }
+});
+ipcMain.on("home:server-folder", (e) => { if (ownPage(e) && serverDir()) shell.openPath(serverDir()); });
 // Missing / Cutoff unmet on Home. The tab asks for an app's whole list when you open it;
 // it's kept here too, so the Search buttons can only search what's really on it.
 const wantedLists = new Map();   // "appId|list" -> items

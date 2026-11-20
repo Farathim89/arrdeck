@@ -84,7 +84,7 @@ function renderApps() {
 }
 
 // ---- sub-tabs ------------------------------------------------------------------------------
-const TABS = ["overview", "downloads", "calendar", "missing", "health", "requests", "alerts"];
+const TABS = ["overview", "downloads", "calendar", "missing", "health", "requests", "alerts", "server"];
 let tab = "overview";
 try { const t = localStorage.getItem("homeTab"); if (TABS.includes(t)) tab = t; } catch {}
 function showTab(t) {
@@ -474,6 +474,102 @@ function renderAlerts() {
   }
 }
 deck.onAlerts((list) => { alertList = list || []; renderAlerts(); });
+
+// ---- server (an "Arr server" folder: start / stop its apps) ---------------------------------
+let server = null;           // { dir, apps: [{ id, name, port, installed, running }], message }
+const busy = new Map();      // id -> { want: true (running) / false, until }
+const SERVER_COLORS = { flaresolverr: "#9ca3af", cleanuparr: "#2dd4bf", chaptarr: "#c084fc" };
+async function loadServer() {
+  try { server = await deck.serverStatus(); } catch { server = null; }
+  const now = Date.now();
+  for (const [id, b] of busy) {
+    const a = server && server.apps && server.apps.find((x) => x.id === id);
+    if (!a || a.running === b.want || now > b.until) busy.delete(id);
+  }
+  renderServer();
+  clearTimeout(loadServer.t);
+  loadServer.t = setTimeout(loadServer, busy.size ? 2500 : tab === "server" ? 10000 : 60000);
+}
+async function serverDo(action, ids, note) {
+  const list = ids || server.apps.filter((a) => a.installed && a.running !== (action === "start")).map((a) => a.id);
+  for (const id of list) busy.set(id, { want: action === "start", until: Date.now() + 120000 });
+  renderServer();
+  const r = await deck.serverAction(action, ids || []);
+  if (!r || !r.ok) {
+    for (const id of list) busy.delete(id);
+    renderServer();
+    const n = $("srvnote");
+    if (n) { n.textContent = (r && r.message) || "Didn't work."; n.className = "qnote bad"; }
+  }
+  clearTimeout(loadServer.t);
+  loadServer.t = setTimeout(loadServer, 2500);
+}
+// A Stop button that asks first, right where it is.
+function stopButton(label, ids, what) {
+  const wrap = el("span", "btns");
+  const b = el("button", "qbtn", label);
+  b.type = "button";
+  b.addEventListener("click", () => {
+    wrap.textContent = "";
+    const yes = el("button", "qbtn", "Stop");
+    yes.type = "button";
+    const no = el("button", "qbtn", "Cancel");
+    no.type = "button";
+    yes.addEventListener("click", () => serverDo("stop", ids));
+    no.addEventListener("click", () => renderServer());
+    wrap.append(el("span", "qask", `Stop ${what}?`), yes, no);
+  });
+  wrap.append(b);
+  return wrap;
+}
+function renderServer() {
+  const has = !!(server && server.dir);
+  $("serverTab").classList.toggle("hidden", !has);
+  if (!has) { if (tab === "server") showTab("overview"); return; }
+  $("serverDir").textContent = server.dir;
+  const apps = (server.apps || []).filter((a) => a.installed);
+  const off = apps.filter((a) => !a.running && !busy.has(a.id)).length;
+  setCount("server", off, off ? "bad" : "");
+  const bar = $("srvbar");
+  bar.textContent = "";
+  const startAll = el("button", "qbtn go", "Start all");
+  startAll.type = "button";
+  startAll.disabled = !off;
+  startAll.addEventListener("click", () => serverDo("start", null));
+  const folder = el("button", "qbtn link", "Open the folder");
+  folder.type = "button";
+  folder.addEventListener("click", () => deck.serverFolder());
+  const note = el("span", "qnote");
+  note.id = "srvnote";
+  bar.append(startAll, stopButton("Stop all", null, "all apps"), folder, note);
+  const box = $("server");
+  box.textContent = "";
+  if (server.message) box.appendChild(el("div", "empty bad", server.message));
+  if (!apps.length && !server.message) box.appendChild(el("div", "empty", "No apps found in that folder."));
+  for (const a of apps) {
+    const row = el("div", "srv");
+    const name = el("span", "name", a.name);
+    const tabApp = data && data.apps.find((x) => x.id === a.id);
+    name.style.borderLeftColor = (tabApp && tabApp.color) || SERVER_COLORS[a.id] || "var(--soft)";
+    const b = busy.get(a.id);
+    const st = b ? el("span", "st busy", b.want ? "Starting…" : "Stopping…")
+      : a.running ? el("span", "st on", "Running") : el("span", "st off", "Stopped");
+    let btn;
+    if (b) btn = el("span", "btns");
+    else if (a.running) btn = stopButton("Stop", [a.id], a.name);
+    else {
+      btn = el("span", "btns");
+      const s = el("button", "qbtn go", "Start");
+      s.type = "button";
+      s.addEventListener("click", () => serverDo("start", [a.id]));
+      btn.append(s);
+    }
+    row.append(name, el("span", "port", "port " + a.port), st, btn);
+    box.appendChild(row);
+  }
+}
+loadServer();
+document.querySelector('#subtabs button[data-tab="server"]').addEventListener("click", () => { clearTimeout(loadServer.t); loadServer(); });
 
 // ---- all of it -----------------------------------------------------------------------------
 function render(d) {

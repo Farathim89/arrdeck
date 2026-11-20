@@ -135,3 +135,14 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: va
 .qbtn.link { border-color: transparent; color: var(--dim); }
 .qbtn.link:hover { color: var(--gold); border-color: var(--gold); }
 .empty.bad { color: var(--bad); }
+
+/* Home > Server */
+.srvbar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; flex-wrap: wrap; }
+.srv { display: grid; grid-template-columns: 1fr 90px 140px auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--soft); }
+.srv .name { font-weight: 600; border-left: 4px solid var(--soft); padding-left: 8px; }
+.srv .port { color: var(--dim); font-size: 13px; }
+.srv .st { font-weight: 600; }
+.srv .st.on { color: var(--ok); }
+.srv .st.off { color: var(--bad); }
+.srv .st.busy { color: var(--gold); }
+.srv .btns { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }

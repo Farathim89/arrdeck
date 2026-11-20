@@ -11,8 +11,8 @@ const APPS = [
   { id: "readarr",    name: "Readarr",    url: "http://127.0.0.1:8787", kind: "arr1",   media: "book",   on: false, color: "#8e2222" },
   { id: "bazarr",     name: "Bazarr",     url: "http://127.0.0.1:6767", kind: "bazarr", media: null,     on: false, color: "#a0a0a0" },
   { id: "jellyseerr", name: "Jellyseerr", url: "http://127.0.0.1:5056", kind: "seerr",  media: null,     on: false, color: "#a855f7" },
-  // plain tabs (no dashboard): their own pages only
-  { id: "cleanuparr", name: "Cleanuparr", url: "http://127.0.0.1:11011", kind: "web",  media: null,     on: false, color: "#2dd4bf" },
+  // plain tabs (no dashboard): their own pages only (Cleanuparr with its own High contrast style)
+  { id: "cleanuparr", name: "Cleanuparr", url: "http://127.0.0.1:11011", kind: "web",  media: null,     on: false, color: "#2dd4bf", style: "cleanuparr-high-contrast.user.css" },
   { id: "qbittorrent", name: "qBittorrent", url: "http://127.0.0.1:8080", kind: "web", media: null,     on: false, color: "#3b82f6" },
 ];
 

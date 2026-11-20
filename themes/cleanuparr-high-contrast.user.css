@@ -1,0 +1,128 @@
+/* ==UserStyle==
+@name           Cleanuparr High contrast (Animekeeper style)
+@namespace      farathim.animekeeper
+@version        1.0.0
+@description    Black, white and gold for Cleanuparr - the High contrast theme of Animekeeper, Shelfkeeper and ArrDeck.
+@author         Farathim
+@license        MIT
+==/UserStyle== */
+
+/* Cleanuparr's default port, 11011, on any address. */
+@-moz-document regexp("https?://[^/]+:11011(/.*)?") {
+  /* Cleanuparr paints everything from these variables (per dark/light theme and accent colour);
+     !important wins over all of those. */
+  :root, :root[data-theme], :root[data-accent], [data-theme], [data-accent] {
+    --accent-rgb: 255, 215, 0 !important;
+    --brand-50: #ffffff !important; --brand-100: #fff7cc !important; --brand-200: #ffef99 !important;
+    --brand-300: #ffe766 !important; --brand-400: #ffdf33 !important; --brand-500: #ffd700 !important;
+    --brand-600: #ffd700 !important; --brand-700: #b39700 !important; --brand-800: #4d4100 !important;
+    --brand-900: #332b00 !important; --brand-950: #000000 !important;
+
+    --color-primary: #ffd700 !important;
+    --color-primary-hover: #ffe766 !important;
+    --color-primary-active: #ffe766 !important;
+    --color-primary-subtle: #332b00 !important;
+    --color-primary-text: #000000 !important;
+    --focus-ring: #ffd700 !important;
+    --focus-ring-offset: #000000 !important;
+
+    --surface-ground: #000000 !important;
+    --surface-section: #000000 !important;
+    --surface-card: #000000 !important;
+    --surface-elevated: #000000 !important;
+    --surface-overlay: rgba(0, 0, 0, .96) !important;
+    --dropdown-bg: #000000 !important;
+
+    --text-primary: #ffffff !important;
+    --text-secondary: #ffffff !important;
+    --text-tertiary: #cccccc !important;
+    --text-disabled: #999999 !important;
+    --text-inverse: #000000 !important;
+
+    --glass-bg: #000000 !important;
+    --glass-bg-hover: #1a1a1a !important;
+    --glass-bg-active: #262626 !important;
+    --glass-border: #ffffff !important;
+    --glass-border-hover: #ffd700 !important;
+    --glass-shadow: none !important;
+    --glass-blur: 0px !important; --glass-blur-sm: 0px !important; --glass-blur-lg: 0px !important;
+
+    --input-bg: #000000 !important;
+    --input-bg-hover: #000000 !important;
+    --input-border: #ffffff !important;
+    --input-border-hover: #ffd700 !important;
+    --input-border-focus: #ffd700 !important;
+    --input-placeholder: #999999 !important;
+    --input-text: #ffffff !important;
+
+    --divider: #666666 !important;
+    --sidebar-bg: #000000 !important;
+    --sidebar-border: #ffffff !important;
+    --sidebar-fade: rgba(0, 0, 0, .9) !important;
+    --sidebar-item-text: #ffffff !important;
+    --sidebar-item-hover: #1a1a1a !important;
+    --sidebar-item-active: #000000 !important;
+    --sidebar-item-active-text: #ffffff !important;
+    --sidebar-section-label: #ffd700 !important;
+    --sidebar-section-label-hover: #ffd700 !important;
+
+    --scrollbar-thumb: #ffffff !important;
+    --scrollbar-thumb-hover: #ffd700 !important;
+    --logo-accent: #ffd700 !important;
+
+    /* no coloured glow in the background */
+    --orb-opacity: 0 !important;
+    --orb-layers: none !important;
+    --orb-layers-auth: none !important;
+  }
+  html, body { background: #000000 !important; color: #ffffff !important; }
+
+  /* the bar along the top: black with a white line under it */
+  .toolbar { background: #000000 !important; border-bottom: 1px solid #ffffff !important; backdrop-filter: none !important; }
+
+  /* headings: plain white (they are a white-to-purple gradient) */
+  .page-header__title, h1, h2 { background: none !important; -webkit-text-fill-color: #ffffff !important; color: #ffffff !important; }
+
+  /* the page you're on in the menu: black with a white edge (like the arr apps) */
+  .sidebar__item--active { background: #000000 !important; box-shadow: inset 0 0 0 2px #ffffff !important; color: #ffffff !important; }
+  .sidebar__item--active::before, .sidebar__item--active::after { background: #ffffff !important; }
+  .sidebar__item:hover:not(.sidebar__item--active) { background: #1a1a1a !important; }
+
+  /* cards and panels: black with a white edge */
+  .card, .card-inner, .support-section__link, .stats__tile, .accordion, .manual-event, .jobs-table__row {
+    background: #000000 !important; border-color: #ffffff !important; box-shadow: none !important; backdrop-filter: none !important;
+  }
+  .stats__tile--active, .stats__window--active { box-shadow: inset 0 0 0 2px #ffd700 !important; background: #000000 !important; }
+  .manual-event--warning { border-color: #ffb000 !important; }
+
+  /* buttons: the main one dark gold with a gold edge and white text, the others black with a white edge */
+  .btn--primary { background: #332b00 !important; border: 1px solid #ffd700 !important; color: #ffffff !important; box-shadow: none !important; }
+  .btn--primary:hover { background: #4d4100 !important; }
+  .btn:not(.btn--primary):not(.btn--ghost) { background: #000000 !important; border: 1px solid #ffffff !important; color: #ffffff !important; }
+  .btn--ghost:hover { background: #1a1a1a !important; }
+
+  /* switches: on = dark gold track with a gold edge, off = black with a white edge */
+  .toggle__track { background: #000000 !important; border: 1px solid #ffffff !important; }
+  .toggle__track--checked { background: #332b00 !important; border-color: #ffd700 !important; }
+  .toggle__thumb { background: #ffffff !important; }
+  .toggle__track--checked .toggle__thumb { background: #ffd700 !important; }
+
+  /* drop-downs and text boxes */
+  .select-trigger, .chip-input, input, textarea, select { background: #000000 !important; border-color: #ffffff !important; color: #ffffff !important; }
+  .select-trigger:focus, .chip-input:focus-within, input:focus, textarea:focus { border-color: #ffd700 !important; box-shadow: 0 0 0 1px #ffd700 !important; }
+
+  /* badges: black with a coloured edge and white text */
+  .badge { background: #000000 !important; color: #ffffff !important; border: 1px solid #ffffff !important; }
+  .badge--warning { border-color: #ffb000 !important; }
+  .badge--success { border-color: #00e676 !important; }
+  .badge--info { border-color: #4fc3f7 !important; }
+  .badge--error, .badge--danger { border-color: #ff5252 !important; }
+
+  /* pop-ups and tooltips */
+  .tooltip-bubble, .modal, .toast-container > * { background: #000000 !important; color: #ffffff !important; border: 1px solid #ffffff !important; box-shadow: none !important; }
+  .modal-backdrop { background: rgba(0, 0, 0, .8) !important; backdrop-filter: none !important; }
+  .modal__header, .modal__footer { border-color: #ffffff !important; }
+
+  a:not(.sidebar__item):not(.support-section__link):not(.btn) { color: #ffd700 !important; }
+  :focus-visible { outline: 2px solid #ffd700 !important; outline-offset: 2px; }
+}

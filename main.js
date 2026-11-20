@@ -194,8 +194,9 @@ function userStyleBody(text) {
   return text.slice(m.index + m[0].length, text.lastIndexOf("}"));
 }
 const styleCache = {};
-function styleFor(kind) {
-  const file = STYLE_FOR_KIND[kind];
+// An app's own style file (Cleanuparr's), else the one for its kind.
+function styleFor(app) {
+  const file = app.style || STYLE_FOR_KIND[app.kind];
   if (!file) return "";
   if (!(file in styleCache)) {
     try { styleCache[file] = userStyleBody(fs.readFileSync(path.join(__dirname, "themes", file), "utf8")); } catch { styleCache[file] = ""; }
@@ -361,7 +362,7 @@ async function applyCss(entry) {
   entry.css = [];
   if (!entry.app) return;   // Home styles itself
   const parts = [NO_FORCED_COLORS];
-  const style = config.highContrast ? `${styleFor(entry.app.kind)}\n${EXTRA_STYLE[entry.app.kind] || ""}` : "";
+  const style = config.highContrast ? `${styleFor(entry.app)}\n${EXTRA_STYLE[entry.app.kind] || ""}` : "";
   if (style) {
     // The style as it is (it has the rules for html / body / :root), plus a copy with every rule
     // raised above the page's own: Seerr marks some colours !important with a class

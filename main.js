@@ -241,6 +241,7 @@ function watchView(entry, id) {
     entry.dead = true;
     if (id === active && onScreen()) reviveView(id);
   });
+  c.on("did-finish-load", () => { entry.loadedAt = Date.now(); });
   c.on("unresponsive", () => { if (!entry.hung) logEvent(`${id}: page not responding`); entry.hung = entry.hung || Date.now(); });
   c.on("responsive", () => { if (entry.hung) logEvent(`${id}: page responding again`); entry.hung = 0; });
 }
@@ -269,16 +270,17 @@ function redraw(entry) {
 }
 // Last resort, and what F5 does: a brand-new view for the tab, at the page it was on (what a restart of
 // ArrDeck does for every tab). The sign-in stays: it lives in the tab's saved session, not in the view.
-function rebuildView(id) {
+function rebuildView(id, auto = false) {
   const old = views.get(id);
   if (!old || !win) return;
-  logEvent(`${id}: building the tab anew`);
+  logEvent(`${id}: building the tab anew${auto ? "" : " (F5)"}`);
   const url = old.app ? old.view.webContents.getURL() : null;
   clearInterval(old.retry);
   win.contentView.removeChildView(old.view);
   views.delete(id);
   if (id === "home") createHomeView(); else createAppView(old.app);
   const entry = views.get(id);
+  if (auto) entry.autoRebuilt = Date.now();
   if (settingsView) win.contentView.addChildView(settingsView);   // keep on top
   layout();
   entry.view.setVisible(id === active);
@@ -314,12 +316,15 @@ function checkDrawn(why) {
       redraw(entry);
       if (win.isFocused() && !settingsView) c.focus();
     }
-    if (entry.failed || c.isLoading()) return;
+    // Only a page that has had time to draw (the apps paint a few seconds after loading), and at most
+    // one automatic rebuild per tab every 2 minutes (F5 is always there).
+    if (entry.failed || c.isLoading() || !entry.loadedAt || Date.now() - entry.loadedAt < 15000) return;
+    if (entry.autoRebuilt && Date.now() - entry.autoRebuilt < 120000) return;
     await new Promise((r) => setTimeout(r, 700));
-    if (id !== active || !onScreen() || views.get(id) !== entry) return;
+    if (id !== active || !onScreen() || !win.isFocused() || views.get(id) !== entry) return;
     if (await looksBlank(entry)) {
       logEvent(`${id}: blank after ${why}`);
-      rebuildView(id);
+      rebuildView(id, true);
     }
   }, 400);
 }

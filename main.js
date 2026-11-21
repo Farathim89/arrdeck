@@ -11,7 +11,7 @@
 
 const {
   app, BrowserWindow, WebContentsView, ipcMain, shell, session, nativeTheme, safeStorage, screen,
-  Tray, Menu, Notification, dialog, webFrameMain,
+  Tray, Menu, Notification, dialog, webFrameMain, nativeImage,
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -926,36 +926,109 @@ function trayHint() {
   saveConfig();
   tray.displayBalloon({ iconType: "info", title: "ArrDeck is still running", content: "It's in the tray and keeps an eye on your downloads. Right-click the icon for your apps or Quit." });
 }
+// The Arr server's apps in the tray menu: they run without tray icons of their own (start-all.ps1), so
+// ArrDeck's icon is where they all are. An app with a tab shares its menu entry with that tab.
+let serverApps = [];          // the last status.ps1 result: [{ id, name, port, installed, running }]
+let serverChecked = 0;
+async function refreshServerApps() {
+  const dir = serverDir();
+  if (!dir) { serverApps = []; updateTrayMenu(); return; }
+  serverChecked = Date.now();
+  try { serverApps = (await serverStatus(dir)).filter((a) => a.installed); } catch (err) { logEvent(`server status: ${err.message}`); }
+  updateTrayMenu();
+}
+// A small round dot for the menu: green = running, grey = stopped.
+const dotCache = {};
+function dot(color) {
+  if (dotCache[color]) return dotCache[color];
+  const s = 32, buf = Buffer.alloc(s * s * 4);
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    const a = Math.max(0, Math.min(1, 9.5 - Math.hypot(x - 15.5, y - 15.5)));   // radius 9 of 16, soft edge
+    const o = (y * s + x) * 4;
+    buf[o] = Math.round(b * a); buf[o + 1] = Math.round(g * a); buf[o + 2] = Math.round(r * a); buf[o + 3] = Math.round(255 * a);
+  }
+  return (dotCache[color] = nativeImage.createFromBitmap(buf, { width: s, height: s, scaleFactor: 2 }));
+}
+const portOf = (url) => { try { const u = new URL(url); return Number(u.port) || (u.protocol === "https:" ? 443 : 80); } catch { return 0; } };
+async function trayServerAction(action, srv) {
+  const what = srv ? srv.name : "all apps of the Arr server";
+  if (action === "stop") {
+    const { response } = await dialog.showMessageBox({
+      type: "question", buttons: ["Stop", "Cancel"], defaultId: 1, cancelId: 1, title: "ArrDeck",
+      message: `Stop ${what}?`, detail: "It keeps running after ArrDeck closes, so it stays stopped until you start it again (or sign in to Windows again).",
+    });
+    if (response !== 0) return;
+  }
+  try { serverAction(action, srv ? [srv.id] : []); } catch (err) { dialog.showErrorBox("ArrDeck", err.message); }
+}
 function updateTrayMenu() {
   if (!tray) return;
-  const tabs = [{ id: "home", name: "Home" }, ...enabledApps()];
+  const srvLeft = [...serverApps];
+  const takeServer = (a) => {
+    const i = srvLeft.findIndex((s) => s.port === portOf(a.url));
+    return i < 0 ? null : srvLeft.splice(i, 1)[0];
+  };
+  const serverItem = (srv, tab) => ({
+    label: srv.name === (tab && tab.name) || !tab ? srv.name : `${tab.name} (${srv.name})`,
+    icon: dot(srv.running ? "#00e676" : "#808080"),
+    submenu: [
+      ...(tab ? [{ label: "Open in ArrDeck", click: () => { showWindow(); select(tab.id); } }] : []),
+      { label: srv.running ? "Running" : "Stopped", enabled: false },
+      srv.running ? { label: "Stop…", click: () => trayServerAction("stop", srv) } : { label: "Start", click: () => trayServerAction("start", srv) },
+    ],
+  });
+  const tabItems = [{ label: "Home", click: () => { showWindow(); select("home"); } }];
+  for (const a of enabledApps()) {
+    const srv = takeServer(a);
+    tabItems.push(srv ? serverItem(srv, a) : { label: a.name, click: () => { showWindow(); select(a.id); } });
+  }
+  const stopped = serverApps.filter((s) => !s.running).length;
+  const server = serverDir() ? [
+    { type: "separator" },
+    ...srvLeft.map((s) => serverItem(s, null)),   // server apps without a tab (FlareSolverr…)
+    { label: stopped ? `Start all (${stopped} stopped)` : "Start all", enabled: stopped > 0 || !serverApps.length, click: () => trayServerAction("start", null) },
+    { label: "Stop all…", enabled: serverApps.some((s) => s.running), click: () => trayServerAction("stop", null) },
+    { label: "Open the Arr server folder", click: () => shell.openPath(serverDir()) },
+  ] : [];
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Show ArrDeck", click: showWindow },
     { type: "separator" },
-    ...tabs.map((t) => ({ label: t.name, click: () => { showWindow(); select(t.id); } })),
+    ...tabItems,
+    ...server,
     { type: "separator" },
     { label: "Settings", click: () => { showWindow(); openSettings(); } },
     { label: "Check for updates", click: () => { if (updater) updater.check(true); } },
     { type: "separator" },
     { label: "Quit ArrDeck", click: quitApp },
   ]));
+  updateTrayIcon();   // the tooltip names stopped server apps
 }
 function updateTrayIcon() {
   if (!tray) return;
   tray.setImage(unseenAlerts ? path.join(__dirname, "build", "tray-alert.png") : ICON);
-  tray.setToolTip(unseenAlerts ? `ArrDeck - ${unseenAlerts} new alert${unseenAlerts === 1 ? "" : "s"}` : "ArrDeck");
+  const stopped = serverApps.filter((s) => !s.running);
+  const srv = !serverApps.length ? "" : stopped.length ? ` - stopped: ${stopped.map((s) => s.name).join(", ")}` : ` - all ${serverApps.length} server apps running`;
+  tray.setToolTip((unseenAlerts ? `ArrDeck - ${unseenAlerts} new alert${unseenAlerts === 1 ? "" : "s"}` : "ArrDeck") + srv);
 }
 // The tray icon is only there when a tray option is on (minimise / ✕ to the tray, or starting
-// with Windows, which starts in the tray). Otherwise ArrDeck is a plain taskbar app.
-const trayWanted = () => !!(config.minimizeToTray || config.closeToTray || config.startWithWindows || startHidden);
+// with Windows, which starts in the tray) or there's an Arr server (its apps are in the tray menu).
+// Otherwise ArrDeck is a plain taskbar app.
+const trayWanted = () => !!(config.minimizeToTray || config.closeToTray || config.startWithWindows || startHidden || serverDir());
+let serverTimer = null;
 function syncTray() {
   if (trayWanted() && !tray) createTray();
   else if (!trayWanted() && tray) { tray.destroy(); tray = null; }
+  // the server apps' dots: every minute while there's a tray icon with them in it
+  clearInterval(serverTimer); serverTimer = null;
+  if (tray && serverDir()) { serverTimer = setInterval(refreshServerApps, 60000); refreshServerApps(); }
 }
 function createTray() {
   tray = new Tray(ICON);
   tray.setToolTip("ArrDeck");
   tray.on("click", () => (win && win.isVisible() && !win.isMinimized() && win.isFocused() ? win.hide() : showWindow()));
+  // fresh dots for the menu: the mouse is on the icon just before a right-click
+  tray.on("mouse-enter", () => { if (serverDir() && Date.now() - serverChecked > 5000) refreshServerApps(); });
   updateTrayMenu();
 }
 // Windows starts ArrDeck at sign-in, in the tray. The portable .exe registers its own path.
@@ -1218,15 +1291,24 @@ ipcMain.handle("home:server", async (e) => {
   if (!ownPage(e)) return null;
   const dir = serverDir();
   if (!dir) return { dir: null };
-  try { return { dir, apps: await serverStatus(dir) }; } catch (err) { return { dir, apps: [], message: `Couldn't read the status: ${err.message}` }; }
+  try {
+    const apps = await serverStatus(dir);
+    serverApps = apps.filter((a) => a.installed); serverChecked = Date.now(); updateTrayMenu();   // the tray menu too
+    return { dir, apps };
+  } catch (err) { return { dir, apps: [], message: `Couldn't read the status: ${err.message}` }; }
 });
+// Start / stop (Home's Server tab and the tray menu). The tray's dots follow a few times while the apps start.
+function serverAction(action, ids) {
+  const dir = serverDir();
+  if (!dir || !["start", "stop"].includes(action)) throw new Error("No Arr server folder found.");
+  runServer(dir, action, ids);
+  logEvent(`server: ${action} ${ids.length ? ids.join(",") : "all"}`);
+  for (const ms of [4000, 12000, 30000, 60000]) setTimeout(refreshServerApps, ms);
+}
 ipcMain.handle("home:server-action", async (e, { action, ids } = {}) => {
   if (!ownPage(e)) return null;
-  const dir = serverDir();
-  if (!dir || !["start", "stop"].includes(action)) return { ok: false, message: "No Arr server folder found." };
   try {
-    runServer(dir, action, Array.isArray(ids) ? ids.map(String) : []);
-    logEvent(`server: ${action} ${Array.isArray(ids) && ids.length ? ids.join(",") : "all"}`);
+    serverAction(action, Array.isArray(ids) ? ids.map(String) : []);
     return { ok: true };
   } catch (err) { return { ok: false, message: err.message }; }
 });
